@@ -1,6 +1,6 @@
 ## 🤩 Hi there, this is Ivy
 
-### 💻 I'm a Program Manager, Data Scientist, Entrepreneur and Content Creator.
+### 💻 I'm a Technical Program Manager, Data Scientist, Entrepreneur and Content Creator.
 
 I've always been a firm believer in people investing in their learning and development, positioning themselves for success and giving back to their community. This is what motivates me to do everything I do, especially to inspire more African women to pursue careers in Science, Technology, Engineering and Mathematics.
 
