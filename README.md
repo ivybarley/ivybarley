@@ -4,7 +4,7 @@
 
 I've always been a firm believer in people investing in their learning and development, positioning themselves for success and giving back to their community. This is what motivates me to do everything I do, especially to inspire more African women to pursue careers in Science, Technology, Engineering and Mathematics.
 
-I currently work on [Open Education Analytics](https://github.com/microsoft/OpenEduAnalytics) at Microsoft, which is an open source project where we collaborate with education systems across the world to develop modern data intelligence capabilities to improve student outcomes.
+I currently work on [Open Education Analytics](https://github.com/microsoft/OpenEduAnalytics) at Microsoft, which is an open source program where we collaborate with education systems across the world to develop modern data intelligence capabilities to improve student outcomes.
 
 Want to get in touch with me? Send me a DM on [Twitter](https://twitter.com/ivybarley) or sign up for my weekly [Twitter Spaces](http://spaceswithivy.com). I also send out a bi-monthly newsletter with insights, tips, resources and opportunities to help you get started and keep going in tech. Subscribe [here](https://www.getrevue.co/profile/ivybarley).
 
