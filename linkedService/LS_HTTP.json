@@ -1,0 +1,23 @@
+{
+	"name": "LS_HTTP",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"type": "HttpServer",
+		"connectVia": {
+			"referenceName": "AutoResolveIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		},
+		"description": "Connection to an HTTP endpoint.\nThe baseURL parameter must be passed in from the dataset that utilizes this linked service.",
+		"parameters": {
+			"baseURL": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"typeProperties": {
+			"url": "@{linkedService().baseURL}",
+			"authenticationType": "Anonymous",
+			"enableServerCertificateValidation": true
+		}
+	}
+}

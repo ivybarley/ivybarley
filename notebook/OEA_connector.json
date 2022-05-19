@@ -1,0 +1,136 @@
+{
+	"name": "OEA_connector",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "spark3p1sm",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# OEA connector\n",
+					"This notebook provides a way for invoking methods on the OEA framework or supporting modules from a pipeline.\n",
+					"\n",
+					"When setting up a new module, be sure to include a new cell below that imports that module, so that its methods can be invoked by pipelines."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"# These values should be passed in from the pipeline that is using this notebook as an activity.\r\n",
+					"# Note that kwargs allows you to pass in a dict of params, but the dict has to specified as a string when invoked from a pipeline.\r\n",
+					"# Also note that you can refer to attributes of an object in the params, for example: {'path':oea.stage2np}\r\n",
+					"object_name = 'oea'\r\n",
+					"method_name = ''\r\n",
+					"kwargs = '{}'"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"%run /OEA_py"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": false,
+						"source_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"%run /ContosoSIS_py"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"obj = eval(object_name)\r\n",
+					"kwargs = eval(kwargs)\r\n",
+					"m = getattr(obj, method_name)\r\n",
+					"result = m(**kwargs)\r\n",
+					"mssparkutils.notebook.exit(result)"
+				],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}
