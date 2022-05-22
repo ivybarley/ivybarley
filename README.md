@@ -6,7 +6,7 @@ I've always been a firm believer in people investing in their learning and devel
 
 I currently work on [Open Education Analytics](https://github.com/microsoft/OpenEduAnalytics) at Microsoft, which is an open source program where we collaborate with education systems across the world to develop modern data intelligence capabilities to improve student outcomes.
 
-Want to get in touch? Send me a DM on [Twitter](https://twitter.com/ivybarley) or sign up for my weekly [Twitter Spaces](http://spaceswithivy.com). I also send out a bi-monthly newsletter with insights, tips, resources and opportunities to help you get started and keep going in tech. Subscribe [here](https://newsletter.ivybarley.com).
+Want to get in touch? Send me a DM on [Twitter](https://twitter.com/ivybarley) or sign up for my weekly [Twitter Spaces](http://spaceswithivy.com). I also send out a bi-monthly newsletter with insights, tips, resources and opportunities to help you get started and keep going in tech. Subscribe [here](https://newsletter.ivybarley.com/subscribe).
 
 
 ## 📝 Latest Blog Posts
