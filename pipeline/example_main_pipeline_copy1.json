@@ -1,0 +1,152 @@
+{
+	"name": "example_main_pipeline_copy1",
+	"properties": {
+		"description": "Example pipeline demonstrating typical orchestration of data extraction, landing, ingestion, and creation of lake and sql db's.",
+		"activities": [
+			{
+				"name": "Extract from source - land in stage1np",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Copy_from_each_URL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"endpoints": {
+							"value": "@json('[{\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentattendance.csv\",\"sinkDirectory\": \"contoso_sis/studentattendance\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentdemographics.csv\",\"sinkDirectory\": \"contoso_sis/studentdemographics\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentsectionmark.csv\",\"sinkDirectory\": \"contoso_sis/studentsectionmark\",\"sinkFilename\": \"part1.csv\"}]')",
+							"type": "Expression"
+						},
+						"sinkFilesystem": "stage1np",
+						"timezone": "Eastern Standard Time"
+					}
+				}
+			},
+			{
+				"name": "If create_sql_db",
+				"type": "IfCondition",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.create_sql_db",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "create_sql_db",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "create_sql_db",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"storageAccount": {
+										"value": "@pipeline().parameters.storageAccount",
+										"type": "Expression"
+									},
+									"sourceDirectory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									},
+									"stage": "2"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "If create_lake_db",
+				"type": "IfCondition",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.create_lake_db",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "create_lake_db",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "create_lake_db",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"stageNum": "2",
+									"sourceDirectory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "2_batch_processing_demo",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Extract from source - land in stage1np",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "2_batch_processing_demo",
+						"type": "NotebookReference"
+					},
+					"snapshot": true
+				}
+			}
+		],
+		"parameters": {
+			"storageAccount": {
+				"type": "string",
+				"defaultValue": "stoeacisd3v06rc2"
+			},
+			"sourceDirectory": {
+				"type": "string",
+				"defaultValue": "contoso_sis"
+			},
+			"create_sql_db": {
+				"type": "bool",
+				"defaultValue": true
+			},
+			"create_lake_db": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"folder": {
+			"name": "OEA_Framework"
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-03-16T23:58:22Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}
