@@ -1,0 +1,4426 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "syn-oea-ibv06"
+		},
+		"LS_Azure_SQL_DB_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_Azure_SQL_DB'"
+		},
+		"LS_SQL_Serverless_OEA_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LS_SQL_Serverless_OEA'"
+		},
+		"syn-oea-ibv06-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'syn-oea-ibv06-WorkspaceDefaultSqlServer'"
+		},
+		"syn-oea-v06ibtest-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'syn-oea-v06ibtest-WorkspaceDefaultSqlServer'"
+		},
+		"LS_ADLS_OEA_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://stoeaibv06.dfs.core.windows.net"
+		},
+		"LS_HTTP_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "@{linkedService().baseURL}"
+		},
+		"LS_KeyVault_OEA_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-oea-ibv06.vault.azure.net/"
+		},
+		"syn-oea-ibv06-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://stoeaibv06.dfs.core.windows.net"
+		},
+		"syn-oea-v06ibtest-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://stoeav06ibtest.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy_all_from_Azure_SQL_DB')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get list of tables",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "select schema_name(t.schema_id) as schema_name, t.name as table_name\nfrom sys.tables t",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "DS_Azure_SQL_DB",
+								"type": "DatasetReference",
+								"parameters": {
+									"dbServer": {
+										"value": "@pipeline().parameters.dbServer",
+										"type": "Expression"
+									},
+									"dbName": {
+										"value": "@pipeline().parameters.dbName",
+										"type": "Expression"
+									},
+									"userName": {
+										"value": "@pipeline().parameters.userName",
+										"type": "Expression"
+									},
+									"keyVaultSecretName": {
+										"value": "@pipeline().parameters.keyVaultSecretName",
+										"type": "Expression"
+									}
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Set currentDateTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "currentDateTime",
+							"value": {
+								"value": "@{formatDateTime(convertTimeZone(utcnow(), 'UTC', pipeline().parameters.timezone), 'yyyy-MM-ddTHHmm_ss')}",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get list of tables",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Set currentDateTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get list of tables').output.value",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "Copy_from_Azure_SQL_DB",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Copy_from_Azure_SQL_DB",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"dbServer": {
+												"value": "@pipeline().parameters.dbServer",
+												"type": "Expression"
+											},
+											"dbName": {
+												"value": "@pipeline().parameters.dbName",
+												"type": "Expression"
+											},
+											"userName": {
+												"value": "@pipeline().parameters.userName",
+												"type": "Expression"
+											},
+											"keyVaultSecretName": {
+												"value": "@pipeline().parameters.keyVaultSecretName",
+												"type": "Expression"
+											},
+											"query": {
+												"value": "select * from @{item().schema_name}.@{item().table_name}",
+												"type": "Expression"
+											},
+											"sinkFilesystem": {
+												"value": "@pipeline().parameters.sinkFilesystem",
+												"type": "Expression"
+											},
+											"sinkDirectory": {
+												"value": "@{pipeline().parameters.sinkDirectory}/@{variables('currentDateTime')}/@{item().table_name}",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"dbServer": {
+						"type": "string",
+						"defaultValue": "contosoisd3a.database.windows.net"
+					},
+					"dbName": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"userName": {
+						"type": "string",
+						"defaultValue": "sqladmin"
+					},
+					"keyVaultSecretName": {
+						"type": "string",
+						"defaultValue": "sqladmin-password"
+					},
+					"sinkFilesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"sinkDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis_db"
+					},
+					"timezone": {
+						"type": "string",
+						"defaultValue": "Eastern Standard Time"
+					}
+				},
+				"variables": {
+					"currentDateTime": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Extracts"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:57:49Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_Azure_SQL_DB')]",
+				"[concat(variables('workspaceId'), '/pipelines/Copy_from_Azure_SQL_DB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy_from_Azure_SQL_DB')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy from Azure SQL DB",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "@pipeline().parameters.query",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "ParquetSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "ParquetWriteSettings"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_Azure_SQL_DB",
+								"type": "DatasetReference",
+								"parameters": {
+									"dbServer": {
+										"value": "@pipeline().parameters.dbServer",
+										"type": "Expression"
+									},
+									"dbName": {
+										"value": "@pipeline().parameters.dbName",
+										"type": "Expression"
+									},
+									"userName": {
+										"value": "@pipeline().parameters.userName",
+										"type": "Expression"
+									},
+									"keyVaultSecretName": {
+										"value": "@pipeline().parameters.keyVaultSecretName",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_parquet",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "@pipeline().parameters.sinkFilesystem",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.sinkDirectory",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"dbServer": {
+						"type": "string",
+						"defaultValue": "contosoisd3a.database.windows.net"
+					},
+					"dbName": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"userName": {
+						"type": "string",
+						"defaultValue": "sqladmin"
+					},
+					"keyVaultSecretName": {
+						"type": "string",
+						"defaultValue": "sqladmin-password"
+					},
+					"query": {
+						"type": "string",
+						"defaultValue": "select * from person"
+					},
+					"sinkFilesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"sinkDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis_db/person"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Extracts"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:57:35Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_Azure_SQL_DB')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_parquet')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy_from_URL')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Copies data from the specified URL and lands it in the specified location in the data lake.",
+				"activities": [
+					{
+						"name": "copy from URL",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [
+							{
+								"name": "URL",
+								"value": "@pipeline().parameters.URL"
+							},
+							{
+								"name": "sinkFilesystem",
+								"value": "@pipeline().parameters.sinkFilesystem"
+							},
+							{
+								"name": "sinkFilename",
+								"value": "@pipeline().parameters.sinkFilename"
+							}
+						],
+						"typeProperties": {
+							"source": {
+								"type": "BinarySource",
+								"storeSettings": {
+									"type": "HttpReadSettings",
+									"requestMethod": "GET"
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							},
+							"sink": {
+								"type": "BinarySink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_HTTP_binary",
+								"type": "DatasetReference",
+								"parameters": {
+									"URL": {
+										"value": "@pipeline().parameters.URL",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_binary_file",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "@pipeline().parameters.sinkFilesystem",
+										"type": "Expression"
+									},
+									"filename": {
+										"value": "@pipeline().parameters.sinkFilename",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"URL": {
+						"type": "string",
+						"defaultValue": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentattendance.csv"
+					},
+					"sinkFilesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"sinkFilename": {
+						"type": "string",
+						"defaultValue": "contoso_sis/example1/studentattendance.csv"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Extracts"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:57:14Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_HTTP_binary')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_binary_file')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy_from_each_URL')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Retrieves data from multiple HTTP endpoints as specified in the 'endpoints' parameter.\nThe data is landed in the data lake within a folder named with the current datetime (in the timezone specified).\n\nFor a list of timezones, see: https://docs.microsoft.com/en-us/azure/data-factory/control-flow-expression-language-functions#convertfromutc",
+				"activities": [
+					{
+						"name": "get data for each endpoint",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Set currentDateTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@pipeline().parameters.endpoints",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"batchCount": 3,
+							"activities": [
+								{
+									"name": "Copy_from_URL",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Copy_from_URL",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"URL": {
+												"value": "@item().URL",
+												"type": "Expression"
+											},
+											"sinkFilesystem": {
+												"value": "@pipeline().parameters.sinkFilesystem",
+												"type": "Expression"
+											},
+											"sinkFilename": {
+												"value": "@{item().sinkDirectory}/@{variables('currentDateTime')}/@{item().sinkFilename}",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Set currentDateTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "currentDateTime",
+							"value": {
+								"value": "@{formatDateTime(convertTimeZone(utcnow(), 'UTC', pipeline().parameters.timezone), 'yyyy-MM-ddTHHmm_ss')}",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"endpoints": {
+						"type": "array",
+						"defaultValue": [
+							{
+								"URL": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentattendance.csv",
+								"sinkDirectory": "contoso_sis",
+								"sinkFilename": "studentattendance/studentattendance.csv"
+							},
+							{
+								"URL": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentdemographics.csv",
+								"sinkDirectory": "contoso_sis",
+								"sinkFilename": "studentdemographics/studentdemographics.csv"
+							},
+							{
+								"URL": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentsectionmark.csv",
+								"sinkDirectory": "contoso_sis",
+								"sinkFilename": "studentsectionmark/studentsectionmark.csv"
+							}
+						]
+					},
+					"sinkFilesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"timezone": {
+						"type": "string",
+						"defaultValue": "Eastern Standard Time"
+					}
+				},
+				"variables": {
+					"currentDateTime": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Extracts"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:57:23Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/Copy_from_URL')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/create_lake_db')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "create_lake_db",
+						"type": "SynapseNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [
+							{
+								"name": "kwargs",
+								"value": "{'stage_num':@{pipeline().parameters.stageNum},'source_dir':@{pipeline().parameters.sourceDirectory}"
+							}
+						],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "OEA_connector",
+								"type": "NotebookReference"
+							},
+							"parameters": {
+								"object_name": {
+									"value": "oea",
+									"type": "string"
+								},
+								"method_name": {
+									"value": "create_lake_db",
+									"type": "string"
+								},
+								"kwargs": {
+									"value": {
+										"value": "{'stage_num':@{pipeline().parameters.stageNum},'source_dir':'@{pipeline().parameters.sourceDirectory}'}",
+										"type": "Expression"
+									},
+									"type": "string"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"stageNum": {
+						"type": "string",
+						"defaultValue": "2"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Ingest"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:00Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/notebooks/OEA_connector')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/create_sql_db')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "set sqlDBName",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "sqlDBName",
+							"value": {
+								"value": "sqls@{pipeline().parameters.stage}_@{pipeline().parameters.sourceDirectory}",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Stored procedure1",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "set sqlDBName",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[dbo].[sp_executesql]",
+							"storedProcedureParameters": {
+								"command": {
+									"value": {
+										"value": "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '@{variables('sqlDBName')}') \nBEGIN\n  CREATE DATABASE @{variables('sqlDBName')}; \nEND;",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "LS_SQL_Serverless_OEA",
+							"type": "LinkedServiceReference",
+							"parameters": {
+								"dbName": "master"
+							}
+						}
+					},
+					{
+						"name": "get folders in stageXp",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "Stored procedure1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "stage@{pipeline().parameters.stage}p",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "BinaryReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "get folders in stageXp",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('get folders in stageXp').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "create or alter view for pseduonymized tables",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [
+										{
+											"name": "command",
+											"value": "CREATE OR ALTER VIEW @{item().name} AS SELECT * FROM OPENROWSET( BULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}p/@{pipeline().parameters.sourceDirectory}/@{item().name}', FORMAT='DELTA' ) AS [r]"
+										}
+									],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[sp_executesql]",
+										"storedProcedureParameters": {
+											"command": {
+												"value": {
+													"value": "CREATE OR ALTER VIEW @{item().name} AS\nSELECT * FROM OPENROWSET(\nBULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}p/@{pipeline().parameters.sourceDirectory}/@{item().name}',\nFORMAT='DELTA'\n) AS [r]",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Serverless_OEA",
+										"type": "LinkedServiceReference",
+										"parameters": {
+											"dbName": {
+												"value": "@variables('sqlDBName')",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "get folders in stageXnp",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "Stored procedure1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "stage@{pipeline().parameters.stage}np",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "BinaryReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach2",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "get folders in stageXnp",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('get folders in stageXnp').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "create or alter view for lookup tables",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [
+										{
+											"name": "command",
+											"value": "CREATE OR ALTER VIEW @{item().name} AS SELECT * FROM OPENROWSET( BULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}p/@{pipeline().parameters.sourceDirectory}/@{item().name}', FORMAT='DELTA' ) AS [r]"
+										}
+									],
+									"typeProperties": {
+										"storedProcedureName": "[dbo].[sp_executesql]",
+										"storedProcedureParameters": {
+											"command": {
+												"value": {
+													"value": "CREATE OR ALTER VIEW @{item().name} AS\nSELECT * FROM OPENROWSET(\nBULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}np/@{pipeline().parameters.sourceDirectory}/@{item().name}',\nFORMAT='DELTA'\n) AS [r]",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "LS_SQL_Serverless_OEA",
+										"type": "LinkedServiceReference",
+										"parameters": {
+											"dbName": {
+												"value": "@variables('sqlDBName')",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"storageAccount": {
+						"type": "string",
+						"defaultValue": "stoeacisd3gg1"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"stage": {
+						"type": "string",
+						"defaultValue": "2"
+					}
+				},
+				"variables": {
+					"sqlDBName": {
+						"type": "String",
+						"defaultValue": "sqls2_mydb"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Ingest"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:12Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/LS_SQL_Serverless_OEA')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_binary_folder')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/example_main_pipeline')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Example pipeline demonstrating typical orchestration of data extraction, landing, ingestion, and creation of lake and sql db's.",
+				"activities": [
+					{
+						"name": "Extract from source - land in stage1np",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Copy_from_each_URL",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"endpoints": {
+									"value": "@json('[{\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentattendance.csv\",\"sinkDirectory\": \"contoso_sis/studentattendance\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentdemographics.csv\",\"sinkDirectory\": \"contoso_sis/studentdemographics\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentsectionmark.csv\",\"sinkDirectory\": \"contoso_sis/studentsectionmark\",\"sinkFilename\": \"part1.csv\"}]')",
+									"type": "Expression"
+								},
+								"sinkFilesystem": "stage1np",
+								"timezone": "Eastern Standard Time"
+							}
+						}
+					},
+					{
+						"name": "ingest into stage2p and 2np",
+						"type": "SynapseNotebook",
+						"dependsOn": [
+							{
+								"activity": "Extract from source - land in stage1np",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "OEA_connector",
+								"type": "NotebookReference"
+							},
+							"parameters": {
+								"object_name": {
+									"value": "contoso_sis",
+									"type": "string"
+								},
+								"method_name": {
+									"value": "ingest",
+									"type": "string"
+								}
+							}
+						}
+					},
+					{
+						"name": "If create_sql_db",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "ingest into stage2p and 2np",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@pipeline().parameters.create_sql_db",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "create_sql_db",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "create_sql_db",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"storageAccount": {
+												"value": "@pipeline().parameters.storageAccount",
+												"type": "Expression"
+											},
+											"sourceDirectory": {
+												"value": "@pipeline().parameters.sourceDirectory",
+												"type": "Expression"
+											},
+											"stage": "2"
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "If create_lake_db",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "ingest into stage2p and 2np",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@pipeline().parameters.create_lake_db",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "create_lake_db",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "create_lake_db",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"stageNum": "2",
+											"sourceDirectory": {
+												"value": "@pipeline().parameters.sourceDirectory",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"storageAccount": {
+						"type": "string",
+						"defaultValue": "stoeacisd3v06rc2"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"create_sql_db": {
+						"type": "bool",
+						"defaultValue": true
+					},
+					"create_lake_db": {
+						"type": "bool",
+						"defaultValue": true
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:22Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/Copy_from_each_URL')]",
+				"[concat(variables('workspaceId'), '/notebooks/OEA_connector')]",
+				"[concat(variables('workspaceId'), '/pipelines/create_sql_db')]",
+				"[concat(variables('workspaceId'), '/pipelines/create_lake_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/example_main_pipeline_copy1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Example pipeline demonstrating typical orchestration of data extraction, landing, ingestion, and creation of lake and sql db's.",
+				"activities": [
+					{
+						"name": "Extract from source - land in stage1np",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Copy_from_each_URL",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"endpoints": {
+									"value": "@json('[{\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentattendance.csv\",\"sinkDirectory\": \"contoso_sis/studentattendance\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentdemographics.csv\",\"sinkDirectory\": \"contoso_sis/studentdemographics\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentsectionmark.csv\",\"sinkDirectory\": \"contoso_sis/studentsectionmark\",\"sinkFilename\": \"part1.csv\"}]')",
+									"type": "Expression"
+								},
+								"sinkFilesystem": "stage1np",
+								"timezone": "Eastern Standard Time"
+							}
+						}
+					},
+					{
+						"name": "If create_sql_db",
+						"type": "IfCondition",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@pipeline().parameters.create_sql_db",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "create_sql_db",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "create_sql_db",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"storageAccount": {
+												"value": "@pipeline().parameters.storageAccount",
+												"type": "Expression"
+											},
+											"sourceDirectory": {
+												"value": "@pipeline().parameters.sourceDirectory",
+												"type": "Expression"
+											},
+											"stage": "2"
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "If create_lake_db",
+						"type": "IfCondition",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@pipeline().parameters.create_lake_db",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "create_lake_db",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "create_lake_db",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"stageNum": "2",
+											"sourceDirectory": {
+												"value": "@pipeline().parameters.sourceDirectory",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "2_batch_processing_demo",
+						"type": "SynapseNotebook",
+						"dependsOn": [
+							{
+								"activity": "Extract from source - land in stage1np",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "2_batch_processing_demo",
+								"type": "NotebookReference"
+							},
+							"snapshot": true
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"storageAccount": {
+						"type": "string",
+						"defaultValue": "stoeacisd3v06rc2"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"create_sql_db": {
+						"type": "bool",
+						"defaultValue": true
+					},
+					"create_lake_db": {
+						"type": "bool",
+						"defaultValue": true
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:22Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/Copy_from_each_URL')]",
+				"[concat(variables('workspaceId'), '/notebooks/2_batch_processing_demo')]",
+				"[concat(variables('workspaceId'), '/pipelines/create_sql_db')]",
+				"[concat(variables('workspaceId'), '/pipelines/create_lake_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/reset_all_for_source')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Deletes the ingestion for the specified system and table - in order to start over when testing during implementation.",
+				"activities": [
+					{
+						"name": "delete source system dir from stage1np",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage1np",
+									"directory": {
+										"value": "@pipeline().parameters.sourceSystem",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "delete from stage2np",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage2np",
+									"directory": {
+										"value": "@pipeline().parameters.sourceSystem",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "delete from stage2p",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage2p",
+									"directory": {
+										"value": "@pipeline().parameters.sourceSystem",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"sourceSystem": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Reset"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:36Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_binary_folder')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/reset_ingestion_of_table')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Deletes the ingestion for the specified system and table - in order to start over when testing during implementation.",
+				"activities": [
+					{
+						"name": "delete _checkpoints_p",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage1np",
+									"directory": {
+										"value": "@{pipeline().parameters.sourceSystem}/@{pipeline().parameters.tablename}/_checkpoints_p",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "delete _checkpoints_np",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage1np",
+									"directory": {
+										"value": "@{pipeline().parameters.sourceSystem}/@{pipeline().parameters.tablename}/_checkpoints_np",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "delete from stage2np",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage2np",
+									"directory": {
+										"value": "@{pipeline().parameters.sourceSystem}/@{pipeline().parameters.tablename}",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "delete from stage2p",
+						"type": "Delete",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": "stage2p",
+									"directory": {
+										"value": "@{pipeline().parameters.sourceSystem}/@{pipeline().parameters.tablename}",
+										"type": "Expression"
+									}
+								}
+							},
+							"enableLogging": false,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {},
+					"cancelAfter": {}
+				},
+				"parameters": {
+					"sourceSystem": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"tablename": {
+						"type": "string",
+						"defaultValue": "studentattendance"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Reset"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:44Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_binary_folder')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ADLS_binary_file')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Used for landing data in the data lake.\nDefaults to landing data in stage1np.\nNote that you can specify a full path in the filename param (eg, to land a file in a specific folder filename param can be 'contoso_sis/students/students.csv').\n",
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_OEA",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"filename": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().filesystem",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/LS_ADLS_OEA')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ADLS_binary_folder')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_OEA",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filesystem": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().filesystem",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/LS_ADLS_OEA')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ADLS_parquet')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Used for landing data in the data lake as in parquet format.\nDefaults to landing data in stage1np.\nNote that you cannot specify a filename because with parquet the filename should be auto-generated.\n",
+				"linkedServiceName": {
+					"referenceName": "LS_ADLS_OEA",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"directory": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().filesystem",
+							"type": "Expression"
+						}
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/LS_ADLS_OEA')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_Azure_SQL_DB')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_Azure_SQL_DB",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"dbServer": {
+							"value": "@dataset().dbServer",
+							"type": "Expression"
+						},
+						"dbName": {
+							"value": "@dataset().dbName",
+							"type": "Expression"
+						},
+						"userName": {
+							"value": "@dataset().userName",
+							"type": "Expression"
+						},
+						"keyVaultSecretName": {
+							"value": "@dataset().keyVaultSecretName",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"dbServer": {
+						"type": "string",
+						"defaultValue": "myserver.database.windows.net"
+					},
+					"dbName": {
+						"type": "string",
+						"defaultValue": "testdb"
+					},
+					"userName": {
+						"type": "string",
+						"defaultValue": "sqlAdmin"
+					},
+					"keyVaultSecretName": {
+						"type": "string",
+						"defaultValue": "sqlAdminPwd"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": []
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/LS_Azure_SQL_DB')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_HTTP_binary')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Retrieves data from an http endpoint.\nThe data can be in any format - the binary dataset allows us to pull any payload without affecting it.",
+				"linkedServiceName": {
+					"referenceName": "LS_HTTP",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"baseURL": {
+							"value": "@dataset().URL",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"URL": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "HttpServerLocation"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/LS_HTTP')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LS_ADLS_OEA')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Connection to the OEA data lake",
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('LS_ADLS_OEA_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LS_Azure_SQL_DB')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Allows for connecting to an Azure SQL database using SQL authentication and retrieving the user password from the key vault.",
+				"parameters": {
+					"dbServer": {
+						"type": "string",
+						"defaultValue": "myserver.database.windows.net"
+					},
+					"dbName": {
+						"type": "string",
+						"defaultValue": "testdb"
+					},
+					"userName": {
+						"type": "string",
+						"defaultValue": "sqlAdmin"
+					},
+					"keyVaultSecretName": {
+						"type": "string",
+						"defaultValue": "sqlAdminPwd"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('LS_Azure_SQL_DB_connectionString')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "LS_KeyVault_OEA",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": {
+							"value": "@linkedService().keyVaultSecretName",
+							"type": "Expression"
+						}
+					}
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]",
+				"[concat(variables('workspaceId'), '/linkedServices/LS_KeyVault_OEA')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LS_HTTP')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Connection to an HTTP endpoint.\nThe baseURL parameter must be passed in from the dataset that utilizes this linked service.",
+				"parameters": {
+					"baseURL": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "HttpServer",
+				"typeProperties": {
+					"url": "[parameters('LS_HTTP_properties_typeProperties_url')]",
+					"enableServerCertificateValidation": true,
+					"authenticationType": "Anonymous"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LS_KeyVault_OEA')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('LS_KeyVault_OEA_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/LS_SQL_Serverless_OEA')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"dbName": {
+						"type": "string",
+						"defaultValue": "master"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"connectionString": "[parameters('LS_SQL_Serverless_OEA_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/syn-oea-ibv06-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('syn-oea-ibv06-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/syn-oea-ibv06-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('syn-oea-ibv06-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/syn-oea-v06ibtest-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('syn-oea-v06ibtest-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/syn-oea-v06ibtest-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('syn-oea-v06ibtest-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/1_read_me')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "python"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"![OEA](https://openeducationanalytics.org/assets/imgs/img_oea_logo.png)\n",
+							"# OEA and the OEA Framework\n",
+							"\n",
+							"[OEA](https://openeducationanalytics.org/) is the overarching community and ecosystem centered around the effective and responsible use of data and analytics in education.\n",
+							"\n",
+							"The [OEA framework](https://github.com/microsoft/OpenEduAnalytics/tree/main/framework) is an open source python library and synapse pipeline assets - built in collaboration with the OEA community - that simplifies the process of working with the data in your data lake in a way that follows a standardized data lake architecture and data processing best practices through use of [Apache Spark](https://spark.apache.org/) and [delta lake](https://delta.io/) technologies.\n",
+							"\n",
+							"Listed below are 3 included examples that demonstrate the usage of the OEA framework."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [],
+						"attachments": null
+					},
+					{
+						"cell_type": "markdown",
+						"source": [
+							"# Example #1: End to end (collect, prep, view)\n",
+							"The OEA framework comes with a set of Synapse pipelines that demonstrate how to extract data from data sources with common interfaces.\n",
+							"\n",
+							"By clicking on \"Integrate\" in the left nav bar and opening \"example_main_pipeline\" you can run an example pipeline that does the following:\n",
+							"- 1. Retrieves data from an http endpoint\n",
+							"- 2. Lands the data in the stage1np directory\n",
+							"- 3. Ingests the data by first running a pseudonymization process, then writing pseudonymized data to delta tables in stage2p and writing non-pseudonymized data to delta tables in stage2np\n",
+							"- 4. Creates a spark db that points to the delta tables in stage2p and stage2np\n",
+							"- 5. Creates a sql serverless db with views pointing to the delta tables in stage2p and stage2np\n",
+							"\n",
+							"You can then run the pipeline in the Reset folder called \"reset_all_for_source\" to reset everything in the data lake that was done in the \"example_main_pipeline\"."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Example #2: batch data processing\n",
+							"The notebook **_2_batch_processing_demo_** provides a self-contained demonstration of landing and ingesting 3 different types of batch data sets:\n",
+							"\n",
+							"1. [Incremental data](https://github.com/microsoft/OpenEduAnalytics/tree/main/framework#1-incremental-data)\n",
+							"2. [Delta data](https://github.com/microsoft/OpenEduAnalytics/tree/main/framework#2-delta-data-change-data)\n",
+							"3. [Snapshot data](https://github.com/microsoft/OpenEduAnalytics/tree/main/framework#3-snapshot-data)\n",
+							"\n",
+							"Open that notebook and walk through each cell for the details."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Example #3: data generation demo\n",
+							"When learning to work synapse studio and the OEA framework, and when developing the data exploration and data prep scripts you need, it's especially helpful to have test data sets to work with.\n",
+							"\n",
+							"The notebook **_3_data_generation_demo_** data generation demo shows how to generate test data sets across multiple fictional schools for testing purposes."
+						],
+						"attachments": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/2_batch_processing_demo')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# OEA Demo\r\n",
+							"This notebook demonstrates the batch processing features of the OEA framework."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"outputs_hidden": false,
+								"source_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": true
+						},
+						"source": [
+							"%run /OEA_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Incremental batches"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# reset this example (deletes data in stage1np/example, stage2np/example, and stage2p/example)\r\n",
+							"oea.delete_data_source('example')"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Land the first batch of test data\r\n",
+							"df1 = spark.createDataFrame([(1,'Joe','English','2021'), (2,'Helen','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('example', 'student', df1)\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the first batch of test data into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_incremental_data('example', 'student', example_schema, 'school_year', 'id')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/example/student_pseudo')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# land the second batch of test data\r\n",
+							"df2 = spark.createDataFrame([(3,'Elisa','Spanish','2021'), (4,'Lily','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('example', 'student', df2)\r\n",
+							"# show the comprehensive set of data landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the second batch of test data into stage2\r\n",
+							"oea.ingest_incremental_data('example', 'student', example_schema, 'school_year', 'id')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Delta batches"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# reset this example (deletes data in stage1np/example, stage2np/example, and stage2p/example)\r\n",
+							"oea.delete_data_source('delta_example')"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Land the first batch of test data\r\n",
+							"df1 = spark.createDataFrame([(1,'Joseph','English','2021'), (2,'Helen','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('delta_example', 'student', df1)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/delta_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the first batch of test data into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_delta_data('delta_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/delta_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/delta_example/student_pseudo')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Land the second batch of test data\r\n",
+							"df2 = spark.createDataFrame([(1,'Joseph','Spanish','2021'), (3,'Elisa','Spanish','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('delta_example', 'student', df2)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/delta_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the second batch of test data into stage2\r\n",
+							"oea.ingest_delta_data('delta_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/delta_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/delta_example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Snapshot batches"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# reset this example (deletes data in stage1np/example, stage2np/example, and stage2p/example)\r\n",
+							"oea.delete_data_source('snapshot_example')"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# land data in stage1\r\n",
+							"df1 = spark.createDataFrame([(1,'Joseph','English','2021'), (2,'Helen','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('snapshot_example', 'student', df1)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/snapshot_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# process data from stage1 into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_snapshot_data('snapshot_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/snapshot_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/snapshot_example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# land the second test data batch in stage1\r\n",
+							"df2 = spark.createDataFrame([(1,'Joseph','Spanish','2021'), (3,'Elisa','Spanish','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('snapshot_example', 'student', df2)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/snapshot_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# process data from stage1 into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_snapshot_data('snapshot_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/snapshot_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/snapshot_example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/3_data_generation_demo')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Data Generation Example\r\n",
+							"This notebook demonstrates how to use the EdFiDataGenerator to generate test student data in the Ed-Fi format for as many schools as specified.\r\n",
+							"\r\n",
+							"To generate test Ed-Fi data, simple run this notebook.\r\n",
+							"The test data will be generated in json format and written to stage1np/test_data in your data lake."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"%run OEA_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"%run DataGen_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"dg = EdFiDataGenerator()\r\n",
+							"writer = DataLakeWriter(oea.stage1np + '/test_data')\r\n",
+							"dg.generate_data(2, writer)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/ContosoSIS_py')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "python"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"source": [
+							"class ContosoSIS(BaseOEAModule):\n",
+							"    def __init__(self, source_folder='contoso_sis', pseudonymize = True):\n",
+							"        BaseOEAModule.__init__(self, source_folder, pseudonymize)\n",
+							"        self.schemas['studentattendance'] = [['id', 'string', 'no-op'],\n",
+							"                                            ['student_id', 'string', 'hash'],\n",
+							"                                            ['school_year', 'integer', 'partition-by'],\n",
+							"                                            ['school_id', 'string', 'no-op'],\n",
+							"                                            ['attendance_date', 'timestamp', 'no-op'],\n",
+							"                                            ['all_day', 'string', 'no-op'],\n",
+							"                                            ['Period', 'short', 'no-op'],\n",
+							"                                            ['section_id', 'string', 'no-op'],\n",
+							"                                            ['AttendanceCode', 'string', 'no-op'],\n",
+							"                                            ['PresenceFlag', 'boolean', 'no-op'],\n",
+							"                                            ['attendance_status', 'string', 'no-op'],\n",
+							"                                            ['attendance_type', 'string', 'no-op'],\n",
+							"                                            ['attendance_sequence', 'short', 'no-op']]\n",
+							"\n",
+							"        self.schemas['studentsectionmark'] = [['id', 'string', 'no-op'],\n",
+							"                                            ['student_id', 'string', 'hash'],\n",
+							"                                            ['section_id', 'string', 'no-op'],\n",
+							"                                            ['school_year', 'string', 'partition-by'],\n",
+							"                                            ['term_id', 'string', 'no-op'],\n",
+							"                                            ['numeric_grade_earned', 'short', 'no-op'],\n",
+							"                                            ['alpha_grade_earned', 'string', 'no-op'],\n",
+							"                                            ['is_final_grade', 'string', 'no-op'],\n",
+							"                                            ['credits_attempted', 'short', 'no-op'],\n",
+							"                                            ['credits_earned', 'short', 'no-op'],\n",
+							"                                            ['grad_credit_type', 'string', 'no-op']]\n",
+							"\n",
+							"        self.schemas['studentdemographics'] = [['SIS ID', 'string', 'hash'],\n",
+							"                                            ['FederalRaceCategory', 'string', 'no-op'],\n",
+							"                                            ['PrimaryLanguage', 'string', 'no-op'],\n",
+							"                                            ['ELLStatus', 'string', 'no-op'],\n",
+							"                                            ['SpecialEducation', 'string', 'no-op'],\n",
+							"                                            ['LowIncome', 'boolean', 'no-op']]                                            \n",
+							"\n",
+							"    def ingest(self):\n",
+							"        oea.ingest_incremental_data(self.source_folder, 'studentattendance', self.schemas['studentattendance'], 'school_year', 'id')\n",
+							"        oea.ingest_snapshot_data(self.source_folder, 'studentsectionmark', self.schemas['studentsectionmark'], 'school_year', 'id')\n",
+							"        oea.ingest_delta_data(self.source_folder, 'studentdemographics', self.schemas['studentdemographics'], 'school_year', 'id')\n",
+							"\n",
+							"contoso_sis = ContosoSIS()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DataGen_py')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "python"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"source": [
+							"import random\r\n",
+							"import json\r\n",
+							"from faker import Faker\r\n",
+							"\r\n",
+							"\"\"\" From DataGenUtil.py \"\"\"\r\n",
+							"def list_of_dict_to_csv(list_of_dict, includeHeaders = True):\r\n",
+							"    csv_str = ''\r\n",
+							"    if includeHeaders == True:\r\n",
+							"        header = []\r\n",
+							"        for column_name in list_of_dict[0].keys(): \r\n",
+							"            if not column_name.startswith('_'): header.append(column_name)\r\n",
+							"        csv_str += \",\".join(header) + \"\\n\"\r\n",
+							"\r\n",
+							"    for row in list_of_dict:\r\n",
+							"        csv_str += obj_to_csv(row) + \"\\n\"\r\n",
+							"\r\n",
+							"    return csv_str\r\n",
+							"\r\n",
+							"def obj_to_csv(obj):\r\n",
+							"    csv = ''\r\n",
+							"    for key in obj:\r\n",
+							"        if not (key.startswith('_')): csv += str(obj[key]) + ','\r\n",
+							"    return csv[:-1]\r\n",
+							"\r\n",
+							"def list_of_dict_to_json(list_of_dict):\r\n",
+							"    json_str = '['\r\n",
+							"    for row in list_of_dict:\r\n",
+							"        json_str += obj_to_json(row) + \",\\n\"\r\n",
+							"    return json_str[:-2] + ']'\r\n",
+							"\r\n",
+							"def obj_to_json(obj):\r\n",
+							"    json_dict = {}\r\n",
+							"    for key in obj:\r\n",
+							"        if not (key.startswith('_')): json_dict[key] = obj[key]\r\n",
+							"    return json.dumps(json_dict)\r\n",
+							"\r\n",
+							"\"\"\" From EdFiDataGenerator.py \"\"\"\r\n",
+							"GENDER = ['Male','Female']\r\n",
+							"BOOLEAN = [True, False]\r\n",
+							"OPERATIONAL_STATUS = ['Active','Inactive']\r\n",
+							"CHARTER_STATUS = ['School Charter', 'Open Enrollment Charter', 'Not a Charter School']\r\n",
+							"GRADE_LEVEL = ['First Grade','Second Grade','Third Grade','Fourth Grade','Fifth Grade','Sixth Grade','Seventh Grade','Eighth Grade','Ninth Grade','Tenth Grade','Eleventh Grade','Twelfth Grade']\r\n",
+							"SCHOOL_TYPES = ['High School', 'Middle School', 'Elementary School']\r\n",
+							"SUBJECT_NAMES = [('Math','Algebra'), ('Math','Geometry'), ('Language','English'), ('History','World History'),('Science','Biology'), ('Science','Health'), ('Technology',' Programming'), ('Physical Education','Sports'), ('Arts','Music')]\r\n",
+							"LEVELS_OF_EDUCATION = ['Some College No Degree', 'Doctorate', 'Bachelor\\'s','Master\\'s']\r\n",
+							"PERSONAL_INFORMATION_VERIFICATION_DESCRIPTIONS = ['Entry in family Bible', 'Other official document', 'State-issued ID', 'Hospital certificate', 'Passport', 'Parents affidavit', 'Immigration document/visa', 'Drivers license']\r\n",
+							"RACES = ['Asian' , 'Native Hawaiian - Pacific Islander', 'American Indian - Alaska Native', 'White']\r\n",
+							"\r\n",
+							"class EdFiDataGenerator:\r\n",
+							"    def __init__(self,number_students_per_school=100, include_optional_fields=True, school_year='2021', credit_conversion_factor = 2.0, number_of_grades_per_school = 5, is_current_school_year = True, graduation_plans_per_school = 10, unique_id_length = 5, number_staffs_per_school = 50, number_sections_per_school = 10):\r\n",
+							"        # Set a seed value in Faker so it generates same values every run.\r\n",
+							"        self.faker = Faker('en_US')\r\n",
+							"        Faker.seed(1)\r\n",
+							"\r\n",
+							"        self.include_optional_fields = include_optional_fields\r\n",
+							"        self.graduation_plans_per_school = graduation_plans_per_school\r\n",
+							"        self.school_year = school_year\r\n",
+							"        self.country = 'United States of America'\r\n",
+							"        self.number_students_per_school = number_students_per_school\r\n",
+							"        self.credit_conversion_factor = credit_conversion_factor\r\n",
+							"        self.number_of_grades_per_school = number_of_grades_per_school\r\n",
+							"        self.is_current_school_year = is_current_school_year\r\n",
+							"        self.unique_id_length = unique_id_length\r\n",
+							"        self.number_staffs_per_school = number_staffs_per_school\r\n",
+							"        self.number_sections_per_school = number_sections_per_school\r\n",
+							"\r\n",
+							"    def get_descriptor_string(self, key, value):\r\n",
+							"        return \"uri://ed-fi.org/{}#{}\".format(key,value)\r\n",
+							"\r\n",
+							"    def generate_data(self, num_of_schools, writer):\r\n",
+							"        edfi_data = [self.create_school() for _ in range(num_of_schools)]\r\n",
+							"        edfi_data_formatted = self.format_edfi_data(edfi_data)\r\n",
+							"\r\n",
+							"\r\n",
+							"        writer.write(f'EdFi/School.json',list_of_dict_to_json(edfi_data_formatted['Schools']))\r\n",
+							"        writer.write(f'EdFi/Student.json',list_of_dict_to_json(edfi_data_formatted['Students']))\r\n",
+							"        writer.write(f'EdFi/StudentSchoolAssociation.json',list_of_dict_to_json(edfi_data_formatted['StudentSchoolAssociations']))\r\n",
+							"        writer.write(f'EdFi/Course.json',list_of_dict_to_json(edfi_data_formatted['Courses']))\r\n",
+							"        writer.write(f'EdFi/Calendar.json',list_of_dict_to_json(edfi_data_formatted['Calendars']))\r\n",
+							"        writer.write(f'EdFi/Sessions.json',list_of_dict_to_json(edfi_data_formatted['Sessions']))\r\n",
+							"        writer.write(f'EdFi/StaffSchoolAssociations.json',list_of_dict_to_json(edfi_data_formatted['StaffSchoolAssociations']))\r\n",
+							"        writer.write(f'EdFi/Sections.json',list_of_dict_to_json(edfi_data_formatted['Sections']))\r\n",
+							"        writer.write(f'EdFi/Staffs.json',list_of_dict_to_json(edfi_data_formatted['Staffs']))\r\n",
+							"        writer.write(f'EdFi/StudentSectionAssociations.json',list_of_dict_to_json(edfi_data_formatted['StudentSectionAssociations']))\r\n",
+							"        writer.write(f'EdFi/StaffSectionAssociations.json',list_of_dict_to_json(edfi_data_formatted['StaffSectionAssociations']))\r\n",
+							"\r\n",
+							"\r\n",
+							"    def create_school(self):\r\n",
+							"        school_type = random.choice(SCHOOL_TYPES)\r\n",
+							"        school_name = self.faker.city() + ' ' + school_type\r\n",
+							"        school = {\r\n",
+							"            'Id': self.faker.uuid4().replace('-',''),\r\n",
+							"            'SchoolId': self.faker.random_number(digits = self.unique_id_length),\r\n",
+							"            'NameOfInstitution': school_name,\r\n",
+							"            'OperationalStatusDescriptor': self.get_descriptor_string('OperationalStatusDescriptor',random.choice(OPERATIONAL_STATUS)),\r\n",
+							"            'ShortNameOfInstitution': ''.join([word[0] for word in school_name.split()]),\r\n",
+							"            'Website':''.join(['www.',school_name.lower().replace(' ',''),'.com']),\r\n",
+							"            'AdministrativeFundingControlDescriptor': self.get_descriptor_string('AdministrativeFundingControlDescriptor',random.choice(['public', 'private']) + ' School'),\r\n",
+							"            'CharterStatusDescriptor': self.get_descriptor_string('CharterStatusDescriptor',random.choice(CHARTER_STATUS)),\r\n",
+							"            'SchoolTypeDescriptor': self.get_descriptor_string('SchoolTypeDescriptor','Regular'),\r\n",
+							"            'TitleIPartASchoolDesignationDescriptor': self.get_descriptor_string('TitleIPartASchoolDesignationDescriptor','Not A Title I School'),\r\n",
+							"            'Addresses': self.create_address() if self.include_optional_fields else '',\r\n",
+							"            'EducationOrganizationCategories':[{'EducationOrganizationCategoryDescriptor': self.get_descriptor_string('educationOrganizationCategoryDescriptor','School')}],\r\n",
+							"            'IdentificationCodes': [\r\n",
+							"                {\r\n",
+							"                    'educationOrganizationIdentificationSystemDescriptor': self.get_descriptor_string('educationOrganizationIdentificationSystemDescriptor','SEA'),\r\n",
+							"                    'identificationCode': self.faker.random_number(digits=10)\r\n",
+							"                }\r\n",
+							"            ],\r\n",
+							"            'InstitutionTelephones': self.create_telephones(),\r\n",
+							"            'InternationalAddresses': [],\r\n",
+							"            'SchoolCategories': [\r\n",
+							"                {\r\n",
+							"                    'SchoolCategoryDescriptor': self.get_descriptor_string('SchoolCategoryDescriptor',school_type)\r\n",
+							"                }\r\n",
+							"            ],\r\n",
+							"            'gradeLevels': [\r\n",
+							"                {'gradeLevelDescriptor': self.get_descriptor_string('GradeLevelDescriptor',random.choice(GRADE_LEVEL))} for _ in range(4)\r\n",
+							"            ]\r\n",
+							"        }\r\n",
+							"\r\n",
+							"        school['_SchoolYears'] = self.create_school_years()\r\n",
+							"        school['_Calendars'] = self.create_calendars(school)\r\n",
+							"        school['_Students'] = self.create_students()\r\n",
+							"        school['_Courses'] = self.create_courses(school['SchoolId'],school['Id'],school_name)\r\n",
+							"        school['_GraduationPlans'] = self.create_graduation_plans(school)\r\n",
+							"        school['_StudentAssociations'] = self.create_student_school_associations(school)\r\n",
+							"        school['_Staffs'] = self.create_staffs()\r\n",
+							"        school['_StaffSchoolAssociations'] = self.create_staff_school_associations(school)\r\n",
+							"        school['_Sessions'] = self.create_sessions(school)\r\n",
+							"        school['_Sections'] = self.create_sections(school)\r\n",
+							"        school['_StaffSectionAssociations'] = self.create_staff_section_associations(school)\r\n",
+							"        school['_StudentSectionAssociations'] = self.create_student_section_associations(school)\r\n",
+							"        return school\r\n",
+							"\r\n",
+							"    def create_students(self):\r\n",
+							"        students = []\r\n",
+							"        for _ in range(self.number_students_per_school):\r\n",
+							"            gender = random.choice(GENDER)\r\n",
+							"            fname = self.faker.first_name_male() if gender == 'Male' else self.faker.first_name_female()\r\n",
+							"            students.append({\r\n",
+							"                'Id': self.faker.uuid4().replace('-',''),\r\n",
+							"                'StudentUniqueId': self.faker.random_number(digits = self.unique_id_length),\r\n",
+							"                \"BirthCity\": self.faker.city(),\r\n",
+							"                \"BirthDate\": str(self.faker.date_between(start_date='-18y',end_date='-5y')),\r\n",
+							"                \"BirthSexDescriptor\": self.get_descriptor_string('birthStateAbbreviationDescriptor', gender),\r\n",
+							"                \"FirstName\": fname,\r\n",
+							"                \"IdentificationDocuments\": [],\r\n",
+							"                \"LastSurname\": self.faker.last_name(),\r\n",
+							"                \"OtherNames\": [\r\n",
+							"                    {\r\n",
+							"                        \"OtherNameTypeDescriptor\": self.get_descriptor_string('otherNameTypeDescriptor','Nickname'),\r\n",
+							"                        \"FirstName\": self.faker.first_name_male() if gender == 'Male' else self.faker.first_name_female(),\r\n",
+							"                        \"PersonalTitlePrefix\": 'Mr' if gender == 'Male' else 'Ms'\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"PersonalIdentificationDocuments\": [],\r\n",
+							"                \"PersonalTitlePrefix\": 'Mr' if gender == 'Male' else 'Ms',\r\n",
+							"                \"Visas\": [],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"        })\r\n",
+							"        return students\r\n",
+							"\r\n",
+							"\r\n",
+							"    def create_student_school_associations(self,school):\r\n",
+							"        result = []\r\n",
+							"        graduation_plan_ids = [gp['Id'] for gp in school['_GraduationPlans']]\r\n",
+							"        for student in school['_Students']:\r\n",
+							"            result.append({\r\n",
+							"                'Id': self.faker.uuid4().replace('-',''),\r\n",
+							"                \"GraduationPlanReference\": {\r\n",
+							"                    \"EducationOrganizationId\": school['SchoolId'],\r\n",
+							"                    \"GraduationPlanTypeDescriptor\": \"uri://ed-fi.org/GraduationPlanTypeDescriptor#Minimum\",\r\n",
+							"                    \"GraduationSchoolYear\": self.school_year,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GraduationPlan\",\r\n",
+							"                        \"href\": '/ed-fi/graduationPlans/{}'.format(random.choice(graduation_plan_ids))\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"SchoolReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"School\",\r\n",
+							"                        \"href\": '/ed-fi/schools/{}'.format(school['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"StudentReference\": {\r\n",
+							"                    \"StudentUniqueId\": student['StudentUniqueId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"Student\",\r\n",
+							"                        \"href\": \"/ed-fi/students/{}\".format(student['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"EntryDate\": str(self.faker.date_between(start_date='-5y',end_date='today')),\r\n",
+							"                \"EntryGradeLevelDescriptor\": \"uri://ed-fi.org/GradeLevelDescriptor#{}\".format(random.choice(GRADE_LEVEL)),\r\n",
+							"                \"AlternativeGraduationPlans\": [],\r\n",
+							"                \"EducationPlans\": [],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"            })\r\n",
+							"        return result\r\n",
+							"\r\n",
+							"    def create_calendars(self,school):\r\n",
+							"        return {\r\n",
+							"            'Id': self.faker.uuid4().replace('-',''),\r\n",
+							"            'CalendarCode':self.faker.random_number(digits = self.unique_id_length),\r\n",
+							"            \"SchoolReference\": {\r\n",
+							"                \"SchoolId\": school['SchoolId'],\r\n",
+							"                \"Link\": {\r\n",
+							"                    \"rel\": \"School\",\r\n",
+							"                    \"href\": \"/ed-fi/schools/{}\".format(school['Id'])\r\n",
+							"                }\r\n",
+							"            },\r\n",
+							"            \"SchoolYearTypeReference\": {\r\n",
+							"                \"SchoolYear\": self.school_year,\r\n",
+							"                \"Link\": {\r\n",
+							"                    \"rel\": \"SchoolYearType\",\r\n",
+							"                    \"href\": \"/ed-fi/schoolYearTypes/{}\".format(school['_SchoolYears']['Id'])\r\n",
+							"                }\r\n",
+							"            },\r\n",
+							"            'CalendarTypeDescriptor': self.get_descriptor_string('calendarTypeDescriptor','Student Specific'),\r\n",
+							"            'GradeLevel': []\r\n",
+							"        }\r\n",
+							"\r\n",
+							"    def create_address(self):\r\n",
+							"        address = []\r\n",
+							"        state = self.faker.state_abbr()\r\n",
+							"        for n in ['Physical', 'Mailing']:\r\n",
+							"            address.append({\r\n",
+							"                'AddressType':n,\r\n",
+							"                'City':self.faker.city(),\r\n",
+							"                'PostalCode':self.faker.postcode(),\r\n",
+							"                'StateAbbreviation':state,\r\n",
+							"                'StreetNumberName':self.faker.street_name()\r\n",
+							"            })\r\n",
+							"        return address\r\n",
+							"\r\n",
+							"    def create_courses(self,school_id,id,school_name):\r\n",
+							"        courses = []\r\n",
+							"        for subject,course_name in SUBJECT_NAMES:\r\n",
+							"            courseCode = '{}-{}'.format(course_name[0:3].upper(),random.choice(range(1,5)))\r\n",
+							"            courses.append({\r\n",
+							"                \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"                \"EducationOrganizationReference\": {\r\n",
+							"                    \"EducationOrganizationId\": school_id,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"School\",\r\n",
+							"                        \"href\": \"/ed-fi/schools/{}\".format(id)\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"CourseCode\": courseCode,\r\n",
+							"                \"AcademicSubjectDescriptor\": self.get_descriptor_string('academicSubjectDescriptor', subject),\r\n",
+							"                \"CourseDefinedByDescriptor\": self.get_descriptor_string('CourseDefinedByDescriptor','SEA'),\r\n",
+							"                \"CourseDescription\": 'Description about {}'.format(course_name),\r\n",
+							"                \"CourseGPAApplicabilityDescriptor\": self.get_descriptor_string('CourseGPAApplicabilityDescriptor',random.choice(['Applicable','Not Applicable'])),\r\n",
+							"                \"CourseTitle\": course_name,\r\n",
+							"                \"HighSchoolCourseRequirement\": random.choice(BOOLEAN),\r\n",
+							"                \"NumberOfParts\": 1,\r\n",
+							"                \"CompetencyLevels\": [],\r\n",
+							"                \"IdentificationCodes\": [\r\n",
+							"                    {\r\n",
+							"                        \"CourseIdentificationSystemDescriptor\": self.get_descriptor_string('CourseIdentificationSystemDescriptor','LEA course code'),\r\n",
+							"                        \"CourseCatalogURL\": \"http://www.{}.edu/coursecatalog\".format(school_name.lower().replace(' ','')),\r\n",
+							"                        \"IdentificationCode\": courseCode\r\n",
+							"                    },\r\n",
+							"                    {\r\n",
+							"                        \"CourseIdentificationSystemDescriptor\": self.get_descriptor_string('CourseIdentificationSystemDescriptor','State course code'),\r\n",
+							"                        \"IdentificationCode\": self.faker.random_number(digits = self.unique_id_length)\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"LearningObjectives\": [],\r\n",
+							"                \"LearningStandards\": [\r\n",
+							"                    {\r\n",
+							"                        \"LearningStandardReference\": {\r\n",
+							"                            \"LearningStandardId\": self.faker.random_number(digits = self.unique_id_length),\r\n",
+							"                            \"Link\": {\r\n",
+							"                                \"rel\": \"LearningStandard\",\r\n",
+							"                                \"href\": \"/ed-fi/learningStandards/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                            }\r\n",
+							"                        }\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"LevelCharacteristics\": [\r\n",
+							"                    {\r\n",
+							"                        \"CourseLevelCharacteristicDescriptor\": self.get_descriptor_string('CourseLevelCharacteristicDescriptor','Core Subject')\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"OfferedGradeLevels\": [],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"            })\r\n",
+							"        return courses\r\n",
+							"\r\n",
+							"\r\n",
+							"    def create_graduation_plans(self, school):\r\n",
+							"        graduation_plans = []\r\n",
+							"        for _ in range(self.graduation_plans_per_school):\r\n",
+							"            graduation_plans.append({\r\n",
+							"                'Id': self.faker.uuid4().replace('-',''),\r\n",
+							"                \"EducationOrganizationReference\": {\r\n",
+							"                    \"EducationOrganizationId\": school['SchoolId'],\r\n",
+							"                    \"link\": {\r\n",
+							"                        \"rel\": \"School\",\r\n",
+							"                        \"href\": \"/ed-fi/schools/{}\".format(school['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"GraduationSchoolYearTypeReference\": {\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"SchoolYearType\",\r\n",
+							"                        \"href\": \"/ed-fi/schoolYearTypes/{}\".format(school['_SchoolYears']['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"GraduationPlanTypeDescriptor\": self.get_descriptor_string('GraduationPlanTypeDescriptor', random.choice(['Minimum','Recommended'])),\r\n",
+							"                \"TotalRequiredCredits\": random.choice(range(20,30)),\r\n",
+							"                \"CreditsByCourses\": [],\r\n",
+							"                \"CreditsByCreditCategories\": [\r\n",
+							"                    {\r\n",
+							"                        \"CreditCategoryDescriptor\": self.get_descriptor_string('CreditCategoryDescriptor','Honors'),\r\n",
+							"                        \"Credits\": random.choice(range(5,15))\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"CreditsBySubjects\": [],\r\n",
+							"                \"RequiredAssessments\": [],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"            })\r\n",
+							"        return graduation_plans\r\n",
+							"\r\n",
+							"    def create_school_years(self):\r\n",
+							"        return {\r\n",
+							"            'Id': self.faker.uuid4().replace('-',''),\r\n",
+							"            'SchoolYear': self.school_year,\r\n",
+							"            'CurrentSchoolYear': self.is_current_school_year,\r\n",
+							"            'schoolYearDescription': 'Description about school year',\r\n",
+							"            '_etag': self.faker.random_number(digits=10)\r\n",
+							"        }\r\n",
+							"\r\n",
+							"    def create_telephones(self):\r\n",
+							"        return [\r\n",
+							"            {\r\n",
+							"                'InstitutionTelephoneNumberTypeDescriptor': self.get_descriptor_string('InstitutionTelephoneNumberTypeDescriptor', _),\r\n",
+							"                \"TelephoneNumber\": self.faker.phone_number()\r\n",
+							"            }\r\n",
+							"            for _ in ['Fax','Main']\r\n",
+							"        ]\r\n",
+							"\r\n",
+							"    def create_staffs(self):\r\n",
+							"        staffs = []\r\n",
+							"        for _ in range(self.number_staffs_per_school):\r\n",
+							"            gender = random.choice(GENDER)\r\n",
+							"            fname = self.faker.first_name_male() if gender == 'Male' else self.faker.first_name_female()\r\n",
+							"            lname = self.faker.last_name()\r\n",
+							"            staffs.append({\r\n",
+							"                \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"                \"StaffUniqueId\": self.faker.random_number(digits = self.unique_id_length),\r\n",
+							"                \"BirthDate\": str(self.faker.date_between(start_date='-60y',end_date='-30y')),\r\n",
+							"                \"FirstName\": fname,\r\n",
+							"                \"HighestCompletedLevelOfEducationDescriptor\": self.get_descriptor_string('LevelOfEducationDescriptor', value = random.choice(LEVELS_OF_EDUCATION)),\r\n",
+							"                \"HispanicLatinoEthnicity\": random.choice(BOOLEAN),\r\n",
+							"                \"LastSurname\": lname,\r\n",
+							"                \"LoginId\": '{}{}'.format(fname[0],lname.lower()),\r\n",
+							"                \"PersonalTitlePrefix\": 'Mr' if gender == 'Male' else 'Ms',\r\n",
+							"                \"SexDescriptor\": self.get_descriptor_string('SexDescriptor', value = gender),\r\n",
+							"                \"YearsOfPriorProfessionalExperience\": random.choice(range(50)),\r\n",
+							"                \"Addresses\": self.create_address(),\r\n",
+							"                \"AncestryEthnicOrigins\": [],\r\n",
+							"                \"Credentials\": [\r\n",
+							"                    {\r\n",
+							"                        \"CredentialReference\": {\r\n",
+							"                            \"CredentialIdentifier\": self.faker.random_number(digits = 10),\r\n",
+							"                            \"StateOfIssueStateAbbreviationDescriptor\": self.get_descriptor_string('StateAbbreviationDescriptor', 'TX'),\r\n",
+							"                            \"Link\": {\r\n",
+							"                                \"rel\": \"Credential\",\r\n",
+							"                                \"href\": \"/ed-fi/credentials/\" + self.faker.uuid4().replace('-','')\r\n",
+							"                            }\r\n",
+							"                        }\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"ElectronicMails\": [\r\n",
+							"                    {\r\n",
+							"                        \"ElectronicMailAddress\": \"{}{}@edfi.org\".format(fname,lname),\r\n",
+							"                        \"ElectronicMailTypeDescriptor\": self.get_descriptor_string('ElectronicMailTypeDescriptor','Work')\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"IdentificationCodes\": [\r\n",
+							"                    {\r\n",
+							"                        \"StaffIdentificationSystemDescriptor\": self.get_descriptor_string('StaffIdentificationSystemDescriptor','State'),\r\n",
+							"                        \"IdentificationCode\": self.faker.random_number(digits = self.unique_id_length)\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"IdentificationDocuments\": [],\r\n",
+							"                \"InternationalAddresses\": self.create_address(),\r\n",
+							"                \"Languages\": [],\r\n",
+							"                \"OtherNames\": [self.faker.first_name_male() if gender == 'Male' else self.faker.first_name_female()],\r\n",
+							"                \"PersonalIdentificationDocuments\": [\r\n",
+							"                    {\r\n",
+							"                        \"IdentificationDocumentUseDescriptor\": \"uri://ed-fi.org/IdentificationDocumentUseDescriptor#Personal Information Verification\",\r\n",
+							"                        \"PersonalInformationVerificationDescriptor\": self.get_descriptor_string('PersonalInformationVerificationDescriptor', value = random.choice(PERSONAL_INFORMATION_VERIFICATION_DESCRIPTIONS))\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"Races\": [\r\n",
+							"                    {\r\n",
+							"                        \"RaceDescriptor\": self.get_descriptor_string('RaceDescriptor', value = random.choice(RACES))\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"            })\r\n",
+							"        return staffs\r\n",
+							"\r\n",
+							"    def create_sessions(self, school):\r\n",
+							"\r\n",
+							"        return [{\r\n",
+							"            \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"            \"SchoolReference\":{\r\n",
+							"                \"SchoolId\":school['SchoolId'],\r\n",
+							"                \"Link\":{\r\n",
+							"                    \"rel\":\"School\",\r\n",
+							"                    \"href\":\"/ed-fi/schools/{}\".format(school['Id'])\r\n",
+							"                }\r\n",
+							"            },\r\n",
+							"            \"SchoolYearTypeReference\": {\r\n",
+							"                \"SchoolYear\": self.school_year,\r\n",
+							"                \"Link\": {\r\n",
+							"                    \"rel\": \"SchoolYearType\",\r\n",
+							"                    \"href\": \"/ed-fi/schoolYearTypes/{}\".format(school['_SchoolYears']['Id'])\r\n",
+							"                }\r\n",
+							"            },\r\n",
+							"            \"SessionName\": \"{} - {} Fall Semester\".format(int(self.school_year) - 1, self.school_year ),\r\n",
+							"            \"BeginDate\": \"{}-08-{}\".format(int(self.school_year) - 1, random.randint(1,30)),\r\n",
+							"            \"EndDate\": \"{}-12-{}\".format(int(self.school_year) - 1, random.randint(1,30)),\r\n",
+							"            \"TermDescriptor\": self.get_descriptor_string('TermDescriptor', 'Fall Semester'),\r\n",
+							"            \"TotalInstructionalDays\": random.randint(60,130),\r\n",
+							"            \"GradingPeriods\": [\r\n",
+							"                {\r\n",
+							"                    \"GradingPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"GradingPeriodDescriptor\": \"uri://ed-fi.org/GradingPeriodDescriptor#First Six Weeks\",\r\n",
+							"                    \"PeriodSequence\": 1,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GradingPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/gradingPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                {\r\n",
+							"                    \"GradingPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"GradingPeriodDescriptor\": \"uri://ed-fi.org/GradingPeriodDescriptor#Second Six Weeks\",\r\n",
+							"                    \"PeriodSequence\": 2,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GradingPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/gradingPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                {\r\n",
+							"                    \"GradingPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"GradingPeriodDescriptor\": \"uri://ed-fi.org/GradingPeriodDescriptor#Third Six Weeks\",\r\n",
+							"                    \"PeriodSequence\": 3,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GradingPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/gradingPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                }\r\n",
+							"            ],\r\n",
+							"            \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"        },\r\n",
+							"        {\r\n",
+							"            \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"            \"SchoolReference\":{\r\n",
+							"                \"SchoolId\":school['SchoolId'],\r\n",
+							"                \"Link\":{\r\n",
+							"                    \"rel\":\"School\",\r\n",
+							"                    \"href\":\"/ed-fi/schools/{}\".format(school['Id'])\r\n",
+							"                }\r\n",
+							"            },\r\n",
+							"            \"SchoolYearTypeReference\": {\r\n",
+							"                \"SchoolYear\": self.school_year,\r\n",
+							"                \"Link\": {\r\n",
+							"                    \"rel\": \"SchoolYearType\",\r\n",
+							"                    \"href\": \"/ed-fi/schoolYearTypes/{}\".format(school['_SchoolYears']['Id'])\r\n",
+							"                }\r\n",
+							"            },\r\n",
+							"            \"SessionName\": \"{} - {} Spring Semester\".format(int(self.school_year) - 1, self.school_year),\r\n",
+							"            \"BeginDate\": \"{}-01-{}\".format(self.school_year, random.randint(1,30)),\r\n",
+							"            \"EndDate\": \"{}-05-{}\".format(self.school_year, random.randint(1,30)),\r\n",
+							"            \"TermDescriptor\": self.get_descriptor_string('TermDescriptor', 'Spring Semester'),\r\n",
+							"            \"TotalInstructionalDays\": random.randint(60,130),\r\n",
+							"            \"GradingPeriods\": [\r\n",
+							"                {\r\n",
+							"                    \"GradingPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"GradingPeriodDescriptor\": \"uri://ed-fi.org/GradingPeriodDescriptor#Fourth Six Weeks\",\r\n",
+							"                    \"PeriodSequence\": 4,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GradingPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/gradingPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                {\r\n",
+							"                    \"GradingPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"GradingPeriodDescriptor\": \"uri://ed-fi.org/GradingPeriodDescriptor#Fifth Six Weeks\",\r\n",
+							"                    \"PeriodSequence\": 5,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GradingPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/gradingPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                {\r\n",
+							"                    \"GradingPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"GradingPeriodDescriptor\": \"uri://ed-fi.org/GradingPeriodDescriptor#Sixth Six Weeks\",\r\n",
+							"                    \"PeriodSequence\": 6,\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"GradingPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/gradingPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                }\r\n",
+							"            ],\r\n",
+							"            \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"        }]\r\n",
+							"\r\n",
+							"    def create_sections(self, school):\r\n",
+							"        sections = []\r\n",
+							"        for _ in range(self.number_sections_per_school):\r\n",
+							"            semesterType = random.choice(['Spring', 'Fall'])\r\n",
+							"            subjectName = random.choice(SUBJECT_NAMES)[1]\r\n",
+							"            subjectNumber = random.randint(1,5)\r\n",
+							"            sections.append({\r\n",
+							"                \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"                \"CourseOfferingReference\": {\r\n",
+							"                    \"LocalCourseCode\": \"{}-{}\".format(subjectName[0:3].upper(), subjectNumber),\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"SessionName\": \"{} - {} {} Semester\".format(int(self.school_year) - 1, semesterType, self.school_year),\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"CourseOffering\",\r\n",
+							"                        \"href\": \"/ed-fi/courseOfferings/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"LocationReference\": {\r\n",
+							"                    \"ClassroomIdentificationCode\": self.faker.random_number(digits = 3),\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"Location\",\r\n",
+							"                        \"href\": \"/ed-fi/locations/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"LocationSchoolReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"School\",\r\n",
+							"                        \"href\": \"/ed-fi/schools/{}\".format(school['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"SectionIdentifier\": self.faker.uuid4().replace('-',''),\r\n",
+							"                \"AvailableCredits\": random.randint(1,4),\r\n",
+							"                \"EducationalEnvironmentDescriptor\": self.get_descriptor_string('EducationalEnvironmentDescriptor','Classroom'),\r\n",
+							"                \"SectionName\": \"{} {}\".format(subjectName, subjectNumber),\r\n",
+							"                \"SequenceOfCourse\": random.randint(1,5),\r\n",
+							"                \"Characteristics\": [],\r\n",
+							"                \"ClassPeriods\": [\r\n",
+							"                {\r\n",
+							"                    \"ClassPeriodReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"ClassPeriodName\": \"{} - Traditional\".format(random.randint(1,5)),\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"ClassPeriod\",\r\n",
+							"                        \"href\": \"/ed-fi/classPeriods/{}\".format(self.faker.uuid4().replace('-',''))\r\n",
+							"                    }\r\n",
+							"                    }\r\n",
+							"                }\r\n",
+							"                ],\r\n",
+							"                \"CourseLevelCharacteristics\": [],\r\n",
+							"                \"OfferedGradeLevels\": [],\r\n",
+							"                \"Programs\": [],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"            })\r\n",
+							"        return sections\r\n",
+							"\r\n",
+							"    def create_student_section_associations(self, school):\r\n",
+							"        student_section_associations = []\r\n",
+							"        session = random.choice(school['_Sessions'])\r\n",
+							"        for student in school['_Students']:\r\n",
+							"            course = random.choice(school['_Courses'])\r\n",
+							"            section = random.choice(school['_Sections'])\r\n",
+							"            student_section_associations.append({\r\n",
+							"                    \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"                    \"SectionReference\": {\r\n",
+							"                        \"LocalCourseCode\": course['CourseCode'],\r\n",
+							"                        \"SchoolId\": school['SchoolId'],\r\n",
+							"                        \"SchoolYear\": self.school_year,\r\n",
+							"                        \"SectionIdentifier\": section['SectionIdentifier'],\r\n",
+							"                        \"SessionName\": session['SessionName'],\r\n",
+							"                        \"Link\": {\r\n",
+							"                            \"rel\": \"Section\",\r\n",
+							"                            \"href\": \"/ed-fi/sections/{}\".format(section['Id'])\r\n",
+							"                        }\r\n",
+							"                    },\r\n",
+							"                    \"StudentReference\": {\r\n",
+							"                        \"StudentUniqueId\": student['StudentUniqueId'],\r\n",
+							"                        \"Link\": {\r\n",
+							"                            \"rel\": \"Student\",\r\n",
+							"                            \"href\": \"/ed-fi/students/{}\".format(student['Id'])\r\n",
+							"                        }\r\n",
+							"                    },\r\n",
+							"                    \"BeginDate\": session['BeginDate'],\r\n",
+							"                    \"EndDate\": session['EndDate'],\r\n",
+							"                    \"HomeroomIndicator\": random.choice(BOOLEAN),\r\n",
+							"                    \"_etag\": self.faker.random_number(digits = 10)\r\n",
+							"                })\r\n",
+							"        return student_section_associations\r\n",
+							"\r\n",
+							"    def create_staff_section_associations(self,school):\r\n",
+							"        staff_section_associations = []\r\n",
+							"        for staff in school['_Staffs']:\r\n",
+							"            session = random.choice(school['_Sessions'])\r\n",
+							"            section = random.choice(school['_Sections'])\r\n",
+							"            staff_section_associations.append({\r\n",
+							"                \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"                \"SectionReference\": {\r\n",
+							"                    \"LocalCourseCode\": section['CourseOfferingReference']['LocalCourseCode'],\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"SchoolYear\": self.school_year,\r\n",
+							"                    \"SectionIdentifier\": section['SectionIdentifier'],\r\n",
+							"                    \"SessionName\": session['SessionName'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"Section\",\r\n",
+							"                        \"href\": \"/ed-fi/sections/{}\".format(section['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"StaffReference\": {\r\n",
+							"                    \"StaffUniqueId\": staff['StaffUniqueId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"Staff\",\r\n",
+							"                        \"href\": \"/ed-fi/staffs/{}\".format(staff['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"BeginDate\": session['BeginDate'],\r\n",
+							"                \"ClassroomPositionDescriptor\": \"uri://ed-fi.org/ClassroomPositionDescriptor#Teacher of Record\",\r\n",
+							"                \"EndDate\": session['EndDate'],\r\n",
+							"                \"_etag\": self.faker.uuid4().replace('-','')\r\n",
+							"            })\r\n",
+							"        return staff_section_associations\r\n",
+							"\r\n",
+							"\r\n",
+							"    def create_staff_school_associations(self, school):\r\n",
+							"        staff_school_associations = []\r\n",
+							"        for staff in school['_Staffs']:\r\n",
+							"            staff_school_associations.append({\r\n",
+							"                \"Id\": self.faker.uuid4().replace('-',''),\r\n",
+							"                \"SchoolReference\": {\r\n",
+							"                    \"SchoolId\": school['SchoolId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"School\",\r\n",
+							"                        \"href\": \"/ed-fi/schools/{}\".format(school['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"StaffReference\": {\r\n",
+							"                    \"StaffUniqueId\": staff['StaffUniqueId'],\r\n",
+							"                    \"Link\": {\r\n",
+							"                        \"rel\": \"Staff\",\r\n",
+							"                        \"href\": \"/ed-fi/staffs/{}\".format(staff['Id'])\r\n",
+							"                    }\r\n",
+							"                },\r\n",
+							"                \"ProgramAssignmentDescriptor\": self.get_descriptor_string('ProgramAssignmentDescriptor','Regular Education'),\r\n",
+							"                \"AcademicSubjects\": [\r\n",
+							"                    {\r\n",
+							"                        \"AcademicSubjectDescriptor\": self.get_descriptor_string('AcademicSubjectDescriptor',random.choice(SUBJECT_NAMES)[0])\r\n",
+							"                    }\r\n",
+							"                ],\r\n",
+							"                \"GradeLevels\": [\r\n",
+							"                    {'GradeLevelDescriptor': self.get_descriptor_string('GradeLevelDescriptor',random.choice(GRADE_LEVEL))} for _ in range(4)\r\n",
+							"            ],\r\n",
+							"                \"_etag\": self.faker.random_number(digits=10)\r\n",
+							"            })\r\n",
+							"        return staff_school_associations\r\n",
+							"\r\n",
+							"    def format_edfi_data(self,data):\r\n",
+							"        result = {\r\n",
+							"            'Schools':[],\r\n",
+							"            'Students':[],\r\n",
+							"            'Calendars':[],\r\n",
+							"            'Courses':[],\r\n",
+							"            'StudentSchoolAssociations':[],\r\n",
+							"            'Staffs':[],\r\n",
+							"            'Sections': [],\r\n",
+							"            'StaffSchoolAssociations':[],\r\n",
+							"            'Sessions':[],\r\n",
+							"            'StudentSectionAssociations':[],\r\n",
+							"            'StaffSectionAssociations':[]\r\n",
+							"\r\n",
+							"        }\r\n",
+							"        for school in data:\r\n",
+							"            result['Schools'].append({key: school[key] for key in school if not (key.startswith('_')) })\r\n",
+							"            result['Students'] += school['_Students']\r\n",
+							"            result['Courses'] += school['_Courses']\r\n",
+							"            result['StudentSchoolAssociations'] += school['_StudentAssociations']\r\n",
+							"            result['Calendars'].append(school['_Calendars'])\r\n",
+							"            result['Staffs'] += school['_Staffs']\r\n",
+							"            result['Sections'] += school['_Sections']\r\n",
+							"            result['StaffSchoolAssociations'] += school['_StaffSchoolAssociations']\r\n",
+							"            result['Sessions'] += school['_Sessions']\r\n",
+							"            result['StudentSectionAssociations'] += school['_StudentSectionAssociations']\r\n",
+							"            result['StaffSectionAssociations'] += school['_StaffSectionAssociations']\r\n",
+							"\r\n",
+							"\r\n",
+							"        return result\r\n"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OEA_connector')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# OEA connector\n",
+							"This notebook provides a way for invoking methods on the OEA framework or supporting modules from a pipeline.\n",
+							"\n",
+							"When setting up a new module, be sure to include a new cell below that imports that module, so that its methods can be invoked by pipelines."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"tags": [
+								"parameters"
+							]
+						},
+						"source": [
+							"# These values should be passed in from the pipeline that is using this notebook as an activity.\r\n",
+							"# Note that kwargs allows you to pass in a dict of params, but the dict has to specified as a string when invoked from a pipeline.\r\n",
+							"# Also note that you can refer to attributes of an object in the params, for example: {'path':oea.stage2np}\r\n",
+							"object_name = 'oea'\r\n",
+							"method_name = ''\r\n",
+							"kwargs = '{}'"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"outputs_hidden": false,
+								"source_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": true
+						},
+						"source": [
+							"%run /OEA_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"outputs_hidden": false,
+								"source_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": true
+						},
+						"source": [
+							"%run /ContosoSIS_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"obj = eval(object_name)\r\n",
+							"kwargs = eval(kwargs)\r\n",
+							"m = getattr(obj, method_name)\r\n",
+							"result = m(**kwargs)\r\n",
+							"mssparkutils.notebook.exit(result)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OEA_py')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2,
+					"conf": {}
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "python"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "code",
+						"metadata": {
+							"tags": [
+								"parameters"
+							]
+						},
+						"source": [
+							"from delta.tables import DeltaTable\n",
+							"from notebookutils import mssparkutils\n",
+							"from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, ArrayType, TimestampType, BooleanType, ShortType, DateType\n",
+							"from pyspark.sql import functions as F\n",
+							"from pyspark.sql import SparkSession\n",
+							"from pyspark.sql.utils import AnalysisException\n",
+							"from opencensus.ext.azure.log_exporter import AzureLogHandler, logging\n",
+							"import pandas as pd\n",
+							"import sys\n",
+							"import re\n",
+							"import json\n",
+							"import datetime\n",
+							"import pytz\n",
+							"import random\n",
+							"import io\n",
+							"\n",
+							"logger = logging.getLogger('OEA')\n",
+							"\n",
+							"class OEA:\n",
+							"    def __init__(self, storage_account='', instrumentation_key=None, salt='', logging_level=logging.DEBUG):\n",
+							"        if storage_account:\n",
+							"            self.storage_account = storage_account\n",
+							"        else:\n",
+							"            oea_id = mssparkutils.env.getWorkspaceName()[8:] # extracts the OEA id for this OEA instance from the synapse workspace name (based on OEA naming convention)\n",
+							"            self.storage_account = 'stoea' + oea_id # sets the name of the storage account based on OEA naming convention\n",
+							"            self.keyvault = 'kv-oea-' + oea_id\n",
+							"        self.keyvault_linked_service = 'LS_KeyVault_OEA'\n",
+							"        self.serverless_sql_endpoint = mssparkutils.env.getWorkspaceName() + '-ondemand.sql.azuresynapse.net'\n",
+							"        self._initialize_logger(instrumentation_key, logging_level)\n",
+							"        self.salt = salt\n",
+							"        self.timezone = 'EST'\n",
+							"        self.stage1np = 'abfss://stage1np@' + self.storage_account + '.dfs.core.windows.net'\n",
+							"        self.stage2np = 'abfss://stage2np@' + self.storage_account + '.dfs.core.windows.net'\n",
+							"        self.stage2p = 'abfss://stage2p@' + self.storage_account + '.dfs.core.windows.net'\n",
+							"        self.stage3np = 'abfss://stage3np@' + self.storage_account + '.dfs.core.windows.net'\n",
+							"        self.stage3p = 'abfss://stage3p@' + self.storage_account + '.dfs.core.windows.net'\n",
+							"        self.framework_path = 'abfss://oea-framework@' + self.storage_account + '.dfs.core.windows.net'\n",
+							"\n",
+							"        # Initialize framework db\n",
+							"        spark.sql(f\"CREATE DATABASE IF NOT EXISTS oea\")\n",
+							"        spark.sql(f\"CREATE TABLE IF NOT EXISTS oea.env (name string not null, value string not null, description string) USING DELTA LOCATION '{self.framework_path}/db/env'\")\n",
+							"        df = spark.sql(\"select value from oea.env where name='storage_account'\")\n",
+							"        if df.first(): spark.sql(f\"UPDATE oea.env set value='{self.storage_account}' where name='storage_account'\")\n",
+							"        else: spark.sql(f\"INSERT INTO oea.env VALUES ('storage_account', '{self.storage_account}', 'The name of the data lake storage account for this OEA instance.')\")\n",
+							"        spark.sql(f\"CREATE TABLE IF NOT EXISTS OEA.watermark (source string not null, entity string not null, watermark timestamp not null) USING DELTA LOCATION '{self.framework_path}/db/watermark'\")\n",
+							"\n",
+							"        logger.debug(\"OEA initialized.\")\n",
+							"    \n",
+							"    def path(self, container_name, directory_path=None):\n",
+							"        if directory_path:\n",
+							"            return f'abfss://{container_name}@{self.storage_account}.dfs.core.windows.net/{directory_path}'\n",
+							"        else:\n",
+							"            return f'abfss://{container_name}@{self.storage_account}.dfs.core.windows.net'\n",
+							"\n",
+							"    def convert_path(self, path):\n",
+							"        \"\"\" Converts the given path into a valid url.\n",
+							"            eg, convert_path('stage1np/contoso_sis/student/*') # returns abfss://stage1np@storageaccount.dfs.core.windows.net/contoso_sis/student/*\n",
+							"        \"\"\"\n",
+							"        path_args = path.split('/')\n",
+							"        stage = path_args.pop(0)\n",
+							"        return self.path(stage, '/'.join(path_args))            \n",
+							"\n",
+							"    def _initialize_logger(self, instrumentation_key, logging_level):\n",
+							"        logging.lastResort = None\n",
+							"        # the logger will print an error like \"ValueError: I/O operation on closed file\" because we're trying to have log messages also print to stdout\n",
+							"        # and apparently this causes issues on some of the spark executor nodes. The bottom line is that we don't want these logging errors to get printed in the notebook output.\n",
+							"        logging.raiseExceptions = False\n",
+							"        logger.setLevel(logging_level)\n",
+							"\n",
+							"        handler = logging.StreamHandler(sys.stdout)\n",
+							"        handler.setLevel(logging_level)\n",
+							"        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')\n",
+							"        handler.setFormatter(formatter)\n",
+							"        logger.addHandler(handler)\n",
+							"\n",
+							"        if instrumentation_key:\n",
+							"            # Setup logging to go to app insights (more info here: https://github.com/balakreshnan/Samples2021/blob/main/Synapseworkspace/opencensuslog.md#azure-synapse-spark-logs-runtime-errors-to-application-insights)\n",
+							"            logger.addHandler(AzureLogHandler(connection_string='InstrumentationKey=' + instrumentation_key))\n",
+							"\n",
+							"    def get_value_from_db(self, query):\n",
+							"        df = spark.sql(query)\n",
+							"        if df.first(): return df.first()[0]\n",
+							"        else: return None\n",
+							"\n",
+							"    def get_last_watermark(self, source, entity):\n",
+							"        return self.get_value_from_db(f\"select w.watermark from oea.watermark w where w.source='{source}' and w.entity='{entity}' order by w.watermark desc\")\n",
+							"\n",
+							"    def insert_watermark(self, source, entity, watermark_datetime):\n",
+							"        spark.sql(f\"insert into oea.watermark values ('{source}', '{entity}', '{watermark_datetime}')\")\n",
+							"\n",
+							"    def get_secret(self, secret_name):\n",
+							"        \"\"\" Retrieves the specified secret from the keyvault.\n",
+							"            This method assumes that the keyvault linked service has been setup and is accessible.\n",
+							"        \"\"\"\n",
+							"        sc = SparkSession.builder.getOrCreate()\n",
+							"        token_library = sc._jvm.com.microsoft.azure.synapse.tokenlibrary.TokenLibrary\n",
+							"        value = token_library.getSecret(self.keyvault, secret_name, self.keyvault_linked_service)        \n",
+							"        return value\n",
+							"\n",
+							"    def delete(self, path):\n",
+							"        oea.rm_if_exists(self.convert_path(path))\n",
+							"\n",
+							"    def land(self, data_source, entity, df, partition_label='', format_str='csv', header=True, mode='overwrite'):\n",
+							"        \"\"\" Lands data in stage1np. If partition label is not provided, the current datetime is used with the label of 'batchdate'.\n",
+							"            eg, land('contoso_isd', 'student', data, 'school_year=2021')\n",
+							"        \"\"\"\n",
+							"        tz = pytz.timezone(self.timezone)\n",
+							"        datetime_str = datetime.datetime.now(tz).replace(microsecond=0).isoformat()\n",
+							"        datetime_str = datetime_str.replace(':', '') # Path names can't have a colon - https://github.com/apache/hadoop/blob/trunk/hadoop-common-project/hadoop-common/src/site/markdown/filesystem/introduction.md#path-names\n",
+							"        df.write.format(format_str).save(self.path('stage1np', f'{data_source}/{entity}/{partition_label}/batchdate={datetime_str}'), header=header, mode=mode)\n",
+							"\n",
+							"    def load(self, folder, table, stage=None, data_format='delta'):\n",
+							"        \"\"\" Loads a dataframe based on the path specified in the given args \"\"\"\n",
+							"        if stage is None: stage = self.stage2p\n",
+							"        path = f\"{stage}/{folder}/{table}\"\n",
+							"        try:\n",
+							"            df = spark.read.load(f\"{stage}/{folder}/{table}\", format=data_format)\n",
+							"            return df        \n",
+							"        except AnalysisException as e:\n",
+							"            raise ValueError(\"Failed to load. Are you sure you have the right path?\\nMore info below:\\n\" + str(e)) \n",
+							"\n",
+							"    def load_csv(self, path, header=True):\n",
+							"        \"\"\" Loads a dataframe based on the path specified \n",
+							"            eg, df = load_csv('stage1np/example/student/*')\n",
+							"        \"\"\"\n",
+							"        url_path = self.convert_path(path)\n",
+							"        try:\n",
+							"            df = spark.read.load(url_path, format='csv', header=header)\n",
+							"            return df        \n",
+							"        except AnalysisException as e:\n",
+							"            raise ValueError(f\"Failed to load from: {url_path}. Are you sure you have the right path?\\nMore info below:\\n\" + str(e))\n",
+							"\n",
+							"    def load_delta(self, path):\n",
+							"        \"\"\" Loads a dataframe based on the path specified \n",
+							"            eg, df = load_delta('stage2np/example/student/*')\n",
+							"        \"\"\"\n",
+							"        url_path = self.convert_path(path)\n",
+							"        try:\n",
+							"            df = spark.read.load(url_path, format='delta')\n",
+							"            return df        \n",
+							"        except AnalysisException as e:\n",
+							"            raise ValueError(f\"Failed to load from: {url_path}. Are you sure you have the right path?\\nMore info below:\\n\" + str(e))\n",
+							"\n",
+							"    def load_from_stage1(self, path_and_filename, data_format='csv', header=True):\n",
+							"        \"\"\" Loads a dataframe with data from stage1, based on the path specified in the given args \"\"\"\n",
+							"        path = f\"{self.stage1np}/{path_and_filename}\"\n",
+							"        df = spark.read.load(path, format=data_format, header=header)\n",
+							"        return df        \n",
+							"\n",
+							"    def load_sample_from_csv_file(self, path_and_filename, header=True, stage=None):\n",
+							"        \"\"\" Loads a sample from the specified csv file and returns a pandas dataframe.\n",
+							"            Ex: print(load_sample_from_csv_file('/student_data/students.csv'))\n",
+							"        \"\"\"\n",
+							"        if stage is None: stage = self.stage1np\n",
+							"        csv_str = mssparkutils.fs.head(f\"{stage}/{path_and_filename}\") # https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/microsoft-spark-utilities?pivots=programming-language-python#preview-file-content\n",
+							"        complete_lines = re.match(r\".*\\n\", csv_str, re.DOTALL).group(0)\n",
+							"        if header: header = 0 # for info on why this is needed: https://pandas.pydata.org/pandas-docs/dev/reference/api/pandas.read_csv.html\n",
+							"        else: header = None\n",
+							"        pdf = pd.read_csv(io.StringIO(complete_lines), sep=',', header=header)\n",
+							"        return pdf\n",
+							"\n",
+							"    def print_stage(self, path):\n",
+							"        \"\"\" Prints out the highlevel contents of the specified stage.\"\"\"\n",
+							"        msg = path + \"\\n\"\n",
+							"        folders = self.get_folders(path)\n",
+							"        for folder_name in folders:\n",
+							"            entities = self.get_folders(path + '/' + folder_name)\n",
+							"            msg += f\"{folder_name}: {entities}\\n\"\n",
+							"        print(msg)            \n",
+							"\n",
+							"    def fix_column_names(self, df):\n",
+							"        \"\"\" Fix column names to satisfy the Parquet naming requirements by substituting invalid characters with an underscore. \"\"\"\n",
+							"        df_with_valid_column_names = df.select([F.col(col).alias(re.sub(\"[ ,;{}()\\n\\t=]+\", \"_\", col)) for col in df.columns])\n",
+							"        return df_with_valid_column_names\n",
+							"\n",
+							"    def to_spark_schema(self, schema):#: list[list[str]]):\n",
+							"        \"\"\" Creates a spark schema from a schema specified in the OEA schema format. \n",
+							"            Example:\n",
+							"            schemas['Person'] = [['Id','string','hash'],\n",
+							"                                    ['CreateDate','timestamp','no-op'],\n",
+							"                                    ['LastModifiedDate','timestamp','no-op']]\n",
+							"            to_spark_schema(schemas['Person'])\n",
+							"        \"\"\"\n",
+							"        fields = []\n",
+							"        for col_name, dtype, op in schema:\n",
+							"            fields.append(StructField(col_name, globals()[dtype.lower().capitalize() + \"Type\"](), True))\n",
+							"        spark_schema = StructType(fields)\n",
+							"        return spark_schema\n",
+							"\n",
+							"    def ingest_incremental_data(self, source_system, tablename, schema, partition_by, primary_key='id', data_format='csv', has_header=True):\n",
+							"        \"\"\" Processes incremental batch data from stage1 into stage2 \"\"\"\n",
+							"        source_path = f'{self.stage1np}/{source_system}/{tablename}'\n",
+							"        p_destination_path = f'{self.stage2p}/{source_system}/{tablename}_pseudo'\n",
+							"        np_destination_path = f'{self.stage2np}/{source_system}/{tablename}_lookup'\n",
+							"        logger.info(f'Processing incremental data from: {source_path} and writing out to: {p_destination_path}')\n",
+							"\n",
+							"        if has_header: header_flag = 'true'\n",
+							"        else: header_flag = 'false'\n",
+							"        spark_schema = self.to_spark_schema(schema)\n",
+							"        df = spark.readStream.load(source_path + '/*', format=data_format, header=header_flag, schema=spark_schema)\n",
+							"        #df = spark.read.load(source_path + '/*', format=data_format, header=header_flag, schema=spark_schema)\n",
+							"        #display(df)\n",
+							"        #df = df.withColumn('batchdate', F.to_timestamp(df.batchdate, \"yyyy-MM-dd'T'HHmmssZ\"))\n",
+							"        df = df.dropDuplicates([primary_key]) # drop duplicates across batches. More info: https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#streaming-deduplication\n",
+							"        \n",
+							"        df_pseudo, df_lookup = self.pseudonymize(df, schema)\n",
+							"\n",
+							"        if len(df_pseudo.columns) == 0:\n",
+							"            logger.info('No data to be written to stage2p')\n",
+							"        else:        \n",
+							"            query = df_pseudo.writeStream.format(\"delta\").outputMode(\"append\").trigger(once=True).option(\"checkpointLocation\", source_path + '/_checkpoints/incremental_p').partitionBy(partition_by)\n",
+							"            query = query.start(p_destination_path)\n",
+							"            query.awaitTermination()   # block until query is terminated, with stop() or with error; A StreamingQueryException will be thrown if an exception occurs.\n",
+							"            logger.info(query.lastProgress)\n",
+							"\n",
+							"        if len(df_lookup.columns) == 0:\n",
+							"            logger.info('No data to be written to stage2np')\n",
+							"        else:\n",
+							"            query2 = df_lookup.writeStream.format(\"delta\").outputMode(\"append\").trigger(once=True).option(\"checkpointLocation\", source_path + '/_checkpoints/incremental_np').partitionBy(partition_by)\n",
+							"            query2 = query2.start(np_destination_path)\n",
+							"            query2.awaitTermination()   # block until query is terminated, with stop() or with error; A StreamingQueryException will be thrown if an exception occurs.\n",
+							"            logger.info(query2.lastProgress)        \n",
+							"\n",
+							"    def _merge_into_table(self, df, destination_path, checkpoints_path, condition):\n",
+							"        \"\"\" Merges data from the given dataframe into the delta table at the specified destination_path, based on the given condition.\n",
+							"            If not delta table exists at the specified destination_path, a new delta table is created and the data from the given dataframe is inserted.\n",
+							"            eg, merge_into_table(df_lookup, np_destination_path, source_path + '/_checkpoints/delta_np', \"current.id_pseudonym = updates.id_pseudonym\")\n",
+							"        \"\"\"\n",
+							"        if DeltaTable.isDeltaTable(spark, destination_path):      \n",
+							"            dt = DeltaTable.forPath(spark, destination_path)\n",
+							"            def upsert(batch_df, batchId):\n",
+							"                dt.alias(\"current\").merge(batch_df.alias(\"updates\"), condition).whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()                \n",
+							"            query = df.writeStream.format(\"delta\").foreachBatch(upsert).outputMode(\"update\").trigger(once=True).option(\"checkpointLocation\", checkpoints_path)\n",
+							"        else:\n",
+							"            logger.info(f'Delta table does not yet exist at {destination_path} - creating one now and inserting initial data.')\n",
+							"            query = df.writeStream.format(\"delta\").outputMode(\"append\").trigger(once=True).option(\"checkpointLocation\", checkpoints_path)\n",
+							"        query = query.start(destination_path)\n",
+							"        query.awaitTermination()   # block until query is terminated, with stop() or with error; A StreamingQueryException will be thrown if an exception occurs.\n",
+							"        logger.info(query.lastProgress)    \n",
+							"\n",
+							"    def ingest_delta_data(self, source_system, tablename, schema, partition_by, primary_key='id', data_format='csv', has_header=True):\n",
+							"        \"\"\" Processes delta batch data from stage1 into stage2 \"\"\"\n",
+							"        source_path = f'{self.stage1np}/{source_system}/{tablename}'\n",
+							"        p_destination_path = f'{self.stage2p}/{source_system}/{tablename}_pseudo'\n",
+							"        np_destination_path = f'{self.stage2np}/{source_system}/{tablename}_lookup'\n",
+							"        logger.info(f'Processing delta data from: {source_path} and writing out to: {p_destination_path}')\n",
+							"\n",
+							"        if has_header: header_flag = 'true'\n",
+							"        else: header_flag = 'false'\n",
+							"        spark_schema = self.to_spark_schema(schema)\n",
+							"        df = spark.readStream.load(source_path + '/*', format=data_format, header=header_flag, schema=spark_schema)\n",
+							"        \n",
+							"        df_pseudo, df_lookup = self.pseudonymize(df, schema)\n",
+							"\n",
+							"        if len(df_pseudo.columns) == 0:\n",
+							"            logger.info('No data to be written to stage2p')\n",
+							"        else:\n",
+							"            self._merge_into_table(df_pseudo, p_destination_path, source_path + '/_checkpoints/delta_p', \"current.id_pseudonym = updates.id_pseudonym\")\n",
+							"\n",
+							"        if len(df_lookup.columns) == 0:\n",
+							"            logger.info('No data to be written to stage2np')\n",
+							"        else:\n",
+							"            self._merge_into_table(df_lookup, np_destination_path, source_path + '/_checkpoints/delta_np', \"current.id_pseudonym = updates.id_pseudonym\")\n",
+							"\n",
+							"    def ingest_snapshot_data(self, source_system, tablename, schema, partition_by, primary_key='id', data_format='csv', has_header=True):\n",
+							"        \"\"\" Processes snapshot batch data from stage1 into stage2 \"\"\"\n",
+							"        source_path = f'{self.stage1np}/{source_system}/{tablename}'\n",
+							"        latest_batch = self.get_latest_folder(source_path)\n",
+							"        source_path = source_path + '/' + latest_batch\n",
+							"        p_destination_path = f'{self.stage2p}/{source_system}/{tablename}_pseudo'\n",
+							"        np_destination_path = f'{self.stage2np}/{source_system}/{tablename}_lookup'\n",
+							"        logger.info(f'Processing snapshot data from: {source_path} and writing out to: {p_destination_path}')\n",
+							"\n",
+							"        if has_header: header_flag = 'true'\n",
+							"        else: header_flag = 'false'\n",
+							"        spark_schema = self.to_spark_schema(schema)\n",
+							"        df = spark.read.load(source_path, format=data_format, header=header_flag, schema=spark_schema)\n",
+							"        df = df.dropDuplicates([primary_key]) # More info: https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html#streaming-deduplication\n",
+							"        \n",
+							"        df_pseudo, df_lookup = self.pseudonymize(df, schema)\n",
+							"\n",
+							"        if len(df_pseudo.columns) == 0:\n",
+							"            logger.info('No data to be written to stage2p')\n",
+							"        else:\n",
+							"            df_pseudo.write.save(p_destination_path, format='delta', mode='overwrite', partitionBy=partition_by) \n",
+							"\n",
+							"        if len(df_lookup.columns) == 0:\n",
+							"            logger.info('No data to be written to stage2np')\n",
+							"        else:\n",
+							"            df_lookup.write.save(np_destination_path, format='delta', mode='overwrite', partitionBy=partition_by) \n",
+							"\n",
+							"    def pseudonymize(self, df, schema): #: list[list[str]]):\n",
+							"        \"\"\" Performs pseudonymization of the given dataframe based on the provided schema.\n",
+							"            For example, if the given df is for an entity called person, \n",
+							"            2 dataframes will be returned, one called person that has hashed ids and masked fields, \n",
+							"            and one called person_lookup that contains the original person_id, person_id_pseudo,\n",
+							"            and the non-masked values for columns marked to be masked.\"\"\"\n",
+							"        \n",
+							"        df_pseudo = df_lookup = df\n",
+							"\n",
+							"        for col_name, dtype, op in schema:\n",
+							"            if op == \"hash-no-lookup\" or op == \"hnl\":\n",
+							"                # This means that the lookup can be performed against a different table so no lookup is needed.\n",
+							"                df_pseudo = df_pseudo.withColumn(col_name, F.sha2(F.concat(F.col(col_name), F.lit(self.salt)), 256)).withColumnRenamed(col_name, col_name + \"_pseudonym\")\n",
+							"                df_lookup = df_lookup.drop(col_name)           \n",
+							"            elif op == \"hash\" or op == 'h':\n",
+							"                df_pseudo = df_pseudo.withColumn(col_name, F.sha2(F.concat(F.col(col_name), F.lit(self.salt)), 256)).withColumnRenamed(col_name, col_name + \"_pseudonym\")\n",
+							"                df_lookup = df_lookup.withColumn(col_name + \"_pseudonym\", F.sha2(F.concat(F.col(col_name), F.lit(self.salt)), 256))\n",
+							"            elif op == \"mask\" or op == 'm':\n",
+							"                df_pseudo = df_pseudo.withColumn(col_name, F.lit('*'))\n",
+							"            elif op == \"partition-by\":\n",
+							"                pass # make no changes for this column so that it will be in both dataframes and can be used for partitioning\n",
+							"            elif op == \"no-op\" or op == 'x':\n",
+							"                df_lookup = df_lookup.drop(col_name)\n",
+							"\n",
+							"        df_pseudo = self.fix_column_names(df_pseudo)\n",
+							"        df_lookup = self.fix_column_names(df_lookup)\n",
+							"\n",
+							"        return (df_pseudo, df_lookup)\n",
+							"\n",
+							"    # Returns true if the path exists\n",
+							"    def path_exists(self, path):\n",
+							"        tableExists = False\n",
+							"        try:\n",
+							"            items = mssparkutils.fs.ls(path)\n",
+							"            tableExists = True\n",
+							"        except Exception as e:\n",
+							"            # This Exception comes as a generic Py4JJavaError that occurs when the path specified is not found.\n",
+							"            pass\n",
+							"        return tableExists\n",
+							"\n",
+							"    def ls(self, path):\n",
+							"        if not path.startswith(\"abfss:\"):\n",
+							"            path = self.convert_path(path)\n",
+							"        folders = []\n",
+							"        files = []\n",
+							"        try:\n",
+							"            items = mssparkutils.fs.ls(path)\n",
+							"            for item in items:\n",
+							"                if item.isFile:\n",
+							"                    files.append(item.name)\n",
+							"                elif item.isDir:\n",
+							"                    folders.append(item.name)\n",
+							"        except Exception as e:\n",
+							"            logger.warning(\"[OEA] Could not peform ls on specified path: \" + path + \"\\nThis may be because the path does not exist.\")\n",
+							"        return (folders, files)\n",
+							"\n",
+							"    def print_stage(self, path):\n",
+							"        print(path)\n",
+							"        folders = self.get_folders(path)\n",
+							"        for folder_name in folders:\n",
+							"            entities = self.get_folders(path + '/' + folder_name)\n",
+							"            print(f\"{folder_name}: {entities}\")\n",
+							"\n",
+							"    # Return the list of folders found in the given path.\n",
+							"    def get_folders(self, path):\n",
+							"        dirs = []\n",
+							"        try:\n",
+							"            items = mssparkutils.fs.ls(path)\n",
+							"            for item in items:\n",
+							"                #print(item.name, item.isDir, item.isFile, item.path, item.size)\n",
+							"                if item.isDir:\n",
+							"                    dirs.append(item.name)\n",
+							"        except Exception as e:\n",
+							"            logger.warning(\"[OEA] Could not get list of folders in specified path: \" + path + \"\\nThis may be because the path does not exist.\")\n",
+							"        return dirs\n",
+							"\n",
+							"    def get_latest_folder(self, path):\n",
+							"        folders = self.get_folders(path)\n",
+							"        if len(folders) > 0: return folders[-1]\n",
+							"        else: return None\n",
+							"\n",
+							"    # Remove a folder if it exists (defaults to use of recursive removal).\n",
+							"    def rm_if_exists(self, path, recursive_remove=True):\n",
+							"        try:\n",
+							"            mssparkutils.fs.rm(path, recursive_remove)\n",
+							"        except Exception as e:\n",
+							"            pass\n",
+							"\n",
+							"    def pop_from_path(self, path):\n",
+							"        \"\"\" Pops the last arg in a path and returns the path and the last arg as a tuple.\n",
+							"            pop_from_path('abfss://stage2@xyz.dfs.core.windows.net/ms_insights/test.csv') # returns ('abfss://stage2@xyz.dfs.core.windows.net/ms_insights', 'test.csv')\n",
+							"        \"\"\"\n",
+							"        m = re.match(r\"(.*)\\/([^/]+)\", path)\n",
+							"        return (m.group(1), m.group(2))\n",
+							"\n",
+							"    def parse_source_path(self, path):\n",
+							"        \"\"\" Parses a path that looks like this: abfss://stage2p@stoeacisd3ggimpl3.dfs.core.windows.net/ms_insights\n",
+							"            and returns a dictionary like this: {'stage_num': '2', 'ss': 'ms_insights'}\n",
+							"            Note that it will also return a 'stage_num' of 2 if the path is stage2p or stage2np - this is by design because the spark db with the s2 prefix will be used for data in stage2 and stage2p.\n",
+							"        \"\"\"\n",
+							"        m = re.match(r\".*:\\/\\/stage(?P<stage_num>\\d+)[n]?[p]?@[^/]+\\/(?P<ss>[^/]+)\", path)\n",
+							"        return m.groupdict()\n",
+							"    \n",
+							"    def create_lake_db(self, stage_num, source_dir, source_format='DELTA'):\n",
+							"        \"\"\" Creates a spark db that points to data in the given stage under the specified source directory (assumes that every folder in the source_dir is a table).\n",
+							"            Example: create_lake_db(2, 'contoso_sis')\n",
+							"            Note that a spark db that points to source data in the delta format can't be queried via SQL serverless pool. More info here: https://docs.microsoft.com/en-us/azure/synapse-analytics/sql/resources-self-help-sql-on-demand#delta-lake\n",
+							"        \"\"\"\n",
+							"        db_name = f's{stage_num}_{source_dir}'\n",
+							"        spark.sql(f'CREATE DATABASE IF NOT EXISTS {db_name}')\n",
+							"        self.create_lake_views(db_name, self.path(f'stage{stage_num}p', source_dir), source_format)\n",
+							"        self.create_lake_views(db_name, self.path(f'stage{stage_num}np', source_dir), source_format)\n",
+							"        result = \"Database created: \" + db_name\n",
+							"        logger.info(result)\n",
+							"        return result        \n",
+							"\n",
+							"    def create_lake_views(self, db_name, source_path, source_format):\n",
+							"        dirs = self.get_folders(source_path)\n",
+							"        for table_name in dirs:\n",
+							"            spark.sql(f\"create table if not exists {db_name}.{table_name} using {source_format} location '{source_path}/{table_name}'\")\n",
+							"\n",
+							"    def drop_lake_db(self, db_name):\n",
+							"        spark.sql(f'DROP DATABASE IF EXISTS {db_name} CASCADE')\n",
+							"        result = \"Database dropped: \" + db_name\n",
+							"        logger.info(result)\n",
+							"        return result       \n",
+							"\n",
+							"    def create_sql_db(self, stage_num, source_dir, source_format='DELTA'):\n",
+							"        \"\"\" Prints out the sql script needed for creating a sql serverless db and set of views. \"\"\"\n",
+							"        db_name = f'sqls{stage_num}_{source_dir}'\n",
+							"        cmd += '-- Create a new sql script then execute the following in it:'\n",
+							"        cmd += f\"IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '{db_name}')\\nBEGIN\\n  CREATE DATABASE {db_name};\\nEND;\\nGO\\n\"\n",
+							"        cmd += f\"USE {db_name};\\nGO\\n\\n\"\n",
+							"        cmd += self.create_sql_views(self.path(f'stage{stage_num}p', source_dir), source_format)\n",
+							"        cmd += self.create_sql_views(self.path(f'stage{stage_num}np', source_dir), source_format)\n",
+							"        print(cmd)\n",
+							"\n",
+							"    def create_sql_views(self, source_path, source_format):\n",
+							"        cmd = ''      \n",
+							"        dirs = self.get_folders(source_path)\n",
+							"        for table_name in dirs:\n",
+							"            cmd += f\"CREATE OR ALTER VIEW {table_name} AS\\n  SELECT * FROM OPENROWSET(BULK '{source_path}/{table_name}', FORMAT='{source_format}') AS [r];\\nGO\\n\"\n",
+							"        return cmd\n",
+							"\n",
+							"    def drop_sql_db(self, db_name):\n",
+							"        print('Click on the menu next to the SQL db and select \"Delete\"')\n",
+							"\n",
+							"    # List installed packages\n",
+							"    def list_packages(self):\n",
+							"        import pkg_resources\n",
+							"        for d in pkg_resources.working_set:\n",
+							"            print(d)\n",
+							"\n",
+							"    def print_schema_starter(self, entity_name, df):\n",
+							"        \"\"\" Prints a starter schema that can be modified as needed when developing the oea schema for a new module. \"\"\"\n",
+							"        st = f\"self.schemas['{entity_name}'] = [\"\n",
+							"        for col in df.schema:\n",
+							"            st += f\"['{col.name}', '{str(col.dataType)[:-4].lower()}', 'no-op'],\\n\\t\\t\\t\\t\\t\\t\\t\\t\\t\"\n",
+							"        return st[:-11] + ']'\n",
+							"\n",
+							"    def write_rows_as_csv(data, folder, filename, container=None):\n",
+							"        \"\"\" Writes a dictionary as a csv to the specified location. This is helpful when creating test data sets and landing them in stage1np.\n",
+							"            data = [{'id':'1','fname':'John'}, {'id':'1','fname':'Jane'}]\n",
+							"        \"\"\"\n",
+							"        if container == None: container = self.stage1np\n",
+							"        pdf = pd.DataFrame(data)\n",
+							"        mssparkutils.fs.put(f\"{container}/{folder}/{filename}\", pdf.to_csv(index=False), True) # True indicates overwrite mode  \n",
+							"\n",
+							"    def write_rowset_as_csv(data, folder, container=None):\n",
+							"        \"\"\" Writes out as csv rows the passed in data. The inbound data should be in a format like this:\n",
+							"            data = { 'students':[{'id':'1','fname':'John'}], 'courses':[{'id':'31', 'name':'Math'}] }\n",
+							"        \"\"\"\n",
+							"        if container == None: container = self.stage1np\n",
+							"        for entity_name, value in data.items():\n",
+							"            pdf = pd.DataFrame(value)\n",
+							"            mssparkutils.fs.put(f\"{container}/{folder}/{entity_name}.csv\", pdf.to_csv(index=False), True) # True indicates overwrite mode         \n",
+							"\n",
+							"    def create_empty_dataframe(self, schema):\n",
+							"        \"\"\" Creates an empty dataframe based on the given schema which is specified as an array of column names and sql types.\n",
+							"            eg, schema = [['data_source','string'], ['entity','string'], ['watermark','timestamp']]\n",
+							"        \"\"\"\n",
+							"        fields = []\n",
+							"        for col_name, col_type in schema:\n",
+							"            fields.append(StructField(col_name, globals()[col_type.lower().capitalize() + \"Type\"](), True))\n",
+							"        spark_schema = StructType(fields)\n",
+							"        df = spark.createDataFrame(spark.sparkContext.emptyRDD(), spark_schema)\n",
+							"        return df\n",
+							"\n",
+							"    def delete_data_source(self, data_source):\n",
+							"        self.rm_if_exists(self.convert_path(f'stage1np/{data_source}'))\n",
+							"        self.rm_if_exists(self.convert_path(f'stage2np/{data_source}'))\n",
+							"        self.rm_if_exists(self.convert_path(f'stage2p/{data_source}'))\n",
+							"\n",
+							"class BaseOEAModule:\n",
+							"    \"\"\" Provides data processing methods for Contoso SIS data (the student information system for the fictional Contoso school district).  \"\"\"\n",
+							"    def __init__(self, source_folder, pseudonymize = True):\n",
+							"        self.source_folder = source_folder\n",
+							"        self.pseudonymize = pseudonymize\n",
+							"        self.stage1np = f\"{oea.stage1np}/{source_folder}\"\n",
+							"        self.stage2np = f\"{oea.stage2np}/{source_folder}\"\n",
+							"        self.stage2p = f\"{oea.stage2p}/{source_folder}\"\n",
+							"        self.stage3np = f\"{oea.stage3np}/{source_folder}\"\n",
+							"        self.stage3p = f\"{oea.stage3p}/{source_folder}\"\n",
+							"        self.module_path = f\"{oea.framework_path}/modules/{source_folder}\"\n",
+							"        self.schemas = {}\n",
+							"\n",
+							"    def _process_entity_from_stage1(self, path, entity_name, format='csv', write_mode='overwrite', header='true'):\n",
+							"        spark_schema = oea.to_spark_schema(self.schemas[entity_name])\n",
+							"        df = spark.read.format(format).load(f\"{self.stage1np}/{path}/{entity_name}\", header=header, schema=spark_schema)\n",
+							"\n",
+							"        if self.pseudonymize:\n",
+							"            df_pseudo, df_lookup = oea.pseudonymize(df, self.schemas[entity_name])\n",
+							"            df_pseudo.write.format('delta').mode(write_mode).save(f\"{self.stage2p}/{entity_name}\")\n",
+							"            if len(df_lookup.columns) > 0:\n",
+							"                df_lookup.write.format('delta').mode(write_mode).save(f\"{self.stage2np}/{entity_name}_lookup\")\n",
+							"        else:\n",
+							"            df = oea.fix_column_names(df)   \n",
+							"            df.write.format('delta').mode(write_mode).save(f\"{self.stage2np}/{entity_name}\")\n",
+							"\n",
+							"    def delete_stage1(self):\n",
+							"        oea.rm_if_exists(self.stage1np)\n",
+							"\n",
+							"    def delete_stage2(self):\n",
+							"        oea.rm_if_exists(self.stage2np)\n",
+							"        oea.rm_if_exists(self.stage2p)\n",
+							"\n",
+							"    def delete_stage3(self):\n",
+							"        oea.rm_if_exists(self.stage3np)\n",
+							"        oea.rm_if_exists(self.stage3p)                \n",
+							"\n",
+							"    def delete_all_stages(self):\n",
+							"        self.delete_stage1()\n",
+							"        self.delete_stage2()\n",
+							"        self.delete_stage3()\n",
+							"\n",
+							"    def create_stage2_lake_db(self, format='DELTA'):\n",
+							"        oea.create_lake_db(self.stage2p, format)\n",
+							"        oea.create_lake_db(self.stage2np, format)\n",
+							"\n",
+							"    def create_stage3_lake_db(self, format='DELTA'):\n",
+							"        oea.create_lake_db(self.stage3p, format)\n",
+							"        oea.create_lake_db(self.stage3np, format)\n",
+							"\n",
+							"    def copy_test_data_to_stage1(self):\n",
+							"        mssparkutils.fs.cp(self.module_path + '/test_data', self.stage1np, True)   \n",
+							"\n",
+							"class DataLakeWriter:\n",
+							"    def __init__(self, root_destination):\n",
+							"        self.root_destination = root_destination\n",
+							"\n",
+							"    def write(self, path_and_filename, data_str, format='csv'):\n",
+							"        mssparkutils.fs.append(f\"{self.root_destination}/{path_and_filename}\", data_str, True) # Set the last parameter as True to create the file if it does not exist\n",
+							"\n",
+							"oea = OEA()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/spark3p1sm')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": true,
+					"maxNodeCount": 5,
+					"minNodeCount": 3
+				},
+				"nodeCount": 3,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.1",
+				"libraryRequirements": {
+					"content": "opencensus-ext-azure >= 1.0.8\r\nFaker >= 8.0",
+					"filename": "/usr/csuser/clouddrive/OpenEduAnalytics/framework/requirements.txt",
+					"time": "2022-03-16T23:42:14.6465197Z"
+				},
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": false,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "westus"
+		}
+	]
+}

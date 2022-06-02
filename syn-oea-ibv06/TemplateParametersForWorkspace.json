@@ -1,0 +1,36 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"value": "syn-oea-ibv06"
+		},
+		"LS_Azure_SQL_DB_connectionString": {
+			"value": ""
+		},
+		"LS_SQL_Serverless_OEA_connectionString": {
+			"value": ""
+		},
+		"syn-oea-ibv06-WorkspaceDefaultSqlServer_connectionString": {
+			"value": ""
+		},
+		"syn-oea-v06ibtest-WorkspaceDefaultSqlServer_connectionString": {
+			"value": ""
+		},
+		"LS_ADLS_OEA_properties_typeProperties_url": {
+			"value": "https://stoeaibv06.dfs.core.windows.net"
+		},
+		"LS_HTTP_properties_typeProperties_url": {
+			"value": "@{linkedService().baseURL}"
+		},
+		"LS_KeyVault_OEA_properties_typeProperties_baseUrl": {
+			"value": "https://kv-oea-ibv06.vault.azure.net/"
+		},
+		"syn-oea-ibv06-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"value": "https://stoeaibv06.dfs.core.windows.net"
+		},
+		"syn-oea-v06ibtest-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"value": "https://stoeav06ibtest.dfs.core.windows.net"
+		}
+	}
+}
