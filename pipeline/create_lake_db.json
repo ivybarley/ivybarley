@@ -40,6 +40,10 @@
 							},
 							"type": "string"
 						}
+					},
+					"sparkPool": {
+						"referenceName": "spark3p1sm",
+						"type": "BigDataPoolReference"
 					}
 				}
 			}
