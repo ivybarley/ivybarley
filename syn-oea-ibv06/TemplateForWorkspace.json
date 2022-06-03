@@ -641,6 +641,10 @@
 									},
 									"type": "string"
 								}
+							},
+							"sparkPool": {
+								"referenceName": "spark3p1sm",
+								"type": "BigDataPoolReference"
 							}
 						}
 					}
@@ -666,7 +670,8 @@
 				"lastPublishTime": "2022-03-16T23:58:00Z"
 			},
 			"dependsOn": [
-				"[concat(variables('workspaceId'), '/notebooks/OEA_connector')]"
+				"[concat(variables('workspaceId'), '/notebooks/OEA_connector')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/spark3p1sm')]"
 			]
 		},
 		{
