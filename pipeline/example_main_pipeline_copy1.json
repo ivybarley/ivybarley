@@ -145,7 +145,7 @@
 		"parameters": {
 			"storageAccount": {
 				"type": "string",
-				"defaultValue": "stoeaibv06"
+				"defaultValue": "stoeaibv06test"
 			},
 			"sourceDirectory": {
 				"type": "string",
