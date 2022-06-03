@@ -1196,7 +1196,14 @@
 					{
 						"name": "If create_sql_db",
 						"type": "IfCondition",
-						"dependsOn": [],
+						"dependsOn": [
+							{
+								"activity": "2_batch_processing_demo",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
 						"userProperties": [],
 						"typeProperties": {
 							"expression": {
@@ -1234,7 +1241,14 @@
 					{
 						"name": "If create_lake_db",
 						"type": "IfCondition",
-						"dependsOn": [],
+						"dependsOn": [
+							{
+								"activity": "2_batch_processing_demo",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
 						"userProperties": [],
 						"typeProperties": {
 							"expression": {
