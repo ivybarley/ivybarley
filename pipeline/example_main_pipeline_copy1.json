@@ -134,7 +134,11 @@
 						"referenceName": "2_batch_processing_demo",
 						"type": "NotebookReference"
 					},
-					"snapshot": true
+					"snapshot": true,
+					"sparkPool": {
+						"referenceName": "spark3p1sm",
+						"type": "BigDataPoolReference"
+					}
 				}
 			}
 		],
