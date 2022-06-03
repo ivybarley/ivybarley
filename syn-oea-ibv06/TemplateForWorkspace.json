@@ -1308,7 +1308,11 @@
 								"referenceName": "2_batch_processing_demo",
 								"type": "NotebookReference"
 							},
-							"snapshot": true
+							"snapshot": true,
+							"sparkPool": {
+								"referenceName": "spark3p1sm",
+								"type": "BigDataPoolReference"
+							}
 						}
 					}
 				],
@@ -1343,6 +1347,7 @@
 			"dependsOn": [
 				"[concat(variables('workspaceId'), '/pipelines/Copy_from_each_URL')]",
 				"[concat(variables('workspaceId'), '/notebooks/2_batch_processing_demo')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/spark3p1sm')]",
 				"[concat(variables('workspaceId'), '/pipelines/create_sql_db')]",
 				"[concat(variables('workspaceId'), '/pipelines/create_lake_db')]"
 			]
