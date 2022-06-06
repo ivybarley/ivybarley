@@ -1,0 +1,1585 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "syn-oea-ibv06"
+		},
+		"LS_SQL_Serverless_OEA": {
+			"type": "string"
+		},
+		"LS_ADLS_OEA": {
+			"type": "string"
+		},
+		"LS_HTTP": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/example_main_pipeline_copy1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Example pipeline demonstrating typical orchestration of data extraction, landing, ingestion, and creation of lake and sql db's.",
+				"activities": [
+					{
+						"name": "Extract from source - land in stage1np",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "Copy_from_each_URL",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"endpoints": {
+									"value": "@json('[{\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentattendance.csv\",\"sinkDirectory\": \"contoso_sis/studentattendance\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentdemographics.csv\",\"sinkDirectory\": \"contoso_sis/studentdemographics\",\"sinkFilename\": \"part1.csv\"}, {\"URL\": \"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Student_and_School_Data_Systems/test_data/batch1/studentsectionmark.csv\",\"sinkDirectory\": \"contoso_sis/studentsectionmark\",\"sinkFilename\": \"part1.csv\"}]')",
+									"type": "Expression"
+								},
+								"sinkFilesystem": "stage1np",
+								"timezone": "Eastern Standard Time"
+							}
+						}
+					},
+					{
+						"name": "If create_sql_db",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "2_batch_processing_demo",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@pipeline().parameters.create_sql_db",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "create_sql_db",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "create_sql_db",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"storageAccount": {
+												"value": "@pipeline().parameters.storageAccount",
+												"type": "Expression"
+											},
+											"sourceDirectory": {
+												"value": "@pipeline().parameters.sourceDirectory",
+												"type": "Expression"
+											},
+											"stage": "2"
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "If create_lake_db",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "2_batch_processing_demo",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@pipeline().parameters.create_lake_db",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "create_lake_db",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "create_lake_db",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"stageNum": "2",
+											"sourceDirectory": {
+												"value": "@pipeline().parameters.sourceDirectory",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "2_batch_processing_demo",
+						"type": "SynapseNotebook",
+						"dependsOn": [
+							{
+								"activity": "Extract from source - land in stage1np",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "2_batch_processing_demo",
+								"type": "NotebookReference"
+							},
+							"snapshot": true,
+							"sparkPool": {
+								"referenceName": "spark3p1sm",
+								"type": "BigDataPoolReference"
+							}
+						}
+					}
+				],
+				"parameters": {
+					"storageAccount": {
+						"type": "string",
+						"defaultValue": "stoeaibv06"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"create_sql_db": {
+						"type": "bool",
+						"defaultValue": true
+					},
+					"create_lake_db": {
+						"type": "bool",
+						"defaultValue": true
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:22Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/Copy_from_each_URL')]",
+				"[concat(variables('workspaceId'), '/notebooks/2_batch_processing_demo')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/spark3p1sm')]",
+				"[concat(variables('workspaceId'), '/pipelines/create_sql_db')]",
+				"[concat(variables('workspaceId'), '/pipelines/create_lake_db')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy_from_each_URL')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Retrieves data from multiple HTTP endpoints as specified in the 'endpoints' parameter.\nThe data is landed in the data lake within a folder named with the current datetime (in the timezone specified).\n\nFor a list of timezones, see: https://docs.microsoft.com/en-us/azure/data-factory/control-flow-expression-language-functions#convertfromutc",
+				"activities": [
+					{
+						"name": "get data for each endpoint",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Set currentDateTime",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@pipeline().parameters.endpoints",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"batchCount": 3,
+							"activities": [
+								{
+									"name": "Copy_from_URL",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "Copy_from_URL",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"URL": {
+												"value": "@item().URL",
+												"type": "Expression"
+											},
+											"sinkFilesystem": {
+												"value": "@pipeline().parameters.sinkFilesystem",
+												"type": "Expression"
+											},
+											"sinkFilename": {
+												"value": "@{item().sinkDirectory}/@{variables('currentDateTime')}/@{item().sinkFilename}",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Set currentDateTime",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "currentDateTime",
+							"value": {
+								"value": "@{formatDateTime(convertTimeZone(utcnow(), 'UTC', pipeline().parameters.timezone), 'yyyy-MM-ddTHHmm_ss')}",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"parameters": {
+					"endpoints": {
+						"type": "array",
+						"defaultValue": [
+							{
+								"URL": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentattendance.csv",
+								"sinkDirectory": "contoso_sis",
+								"sinkFilename": "studentattendance/studentattendance.csv"
+							},
+							{
+								"URL": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentdemographics.csv",
+								"sinkDirectory": "contoso_sis",
+								"sinkFilename": "studentdemographics/studentdemographics.csv"
+							},
+							{
+								"URL": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentsectionmark.csv",
+								"sinkDirectory": "contoso_sis",
+								"sinkFilename": "studentsectionmark/studentsectionmark.csv"
+							}
+						]
+					},
+					"sinkFilesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"timezone": {
+						"type": "string",
+						"defaultValue": "Eastern Standard Time"
+					}
+				},
+				"variables": {
+					"currentDateTime": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Extracts"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:57:23Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/Copy_from_URL')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/2_batch_processing_demo')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# OEA Demo\r\n",
+							"This notebook demonstrates the batch processing features of the OEA framework."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"outputs_hidden": false,
+								"source_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": true
+						},
+						"source": [
+							"%run /OEA_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Incremental batches"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# reset this example (deletes data in stage1np/example, stage2np/example, and stage2p/example)\r\n",
+							"oea.delete_data_source('example')"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Land the first batch of test data\r\n",
+							"df1 = spark.createDataFrame([(1,'Joe','English','2021'), (2,'Helen','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('example', 'student', df1)\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the first batch of test data into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_incremental_data('example', 'student', example_schema, 'school_year', 'id')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/example/student_pseudo')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# land the second batch of test data\r\n",
+							"df2 = spark.createDataFrame([(3,'Elisa','Spanish','2021'), (4,'Lily','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('example', 'student', df2)\r\n",
+							"# show the comprehensive set of data landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the second batch of test data into stage2\r\n",
+							"oea.ingest_incremental_data('example', 'student', example_schema, 'school_year', 'id')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Delta batches"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# reset this example (deletes data in stage1np/example, stage2np/example, and stage2p/example)\r\n",
+							"oea.delete_data_source('delta_example')"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Land the first batch of test data\r\n",
+							"df1 = spark.createDataFrame([(1,'Joseph','English','2021'), (2,'Helen','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('delta_example', 'student', df1)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/delta_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the first batch of test data into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_delta_data('delta_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/delta_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/delta_example/student_pseudo')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Land the second batch of test data\r\n",
+							"df2 = spark.createDataFrame([(1,'Joseph','Spanish','2021'), (3,'Elisa','Spanish','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('delta_example', 'student', df2)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/delta_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# ingest the second batch of test data into stage2\r\n",
+							"oea.ingest_delta_data('delta_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/delta_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/delta_example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# Snapshot batches"
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# reset this example (deletes data in stage1np/example, stage2np/example, and stage2p/example)\r\n",
+							"oea.delete_data_source('snapshot_example')"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# land data in stage1\r\n",
+							"df1 = spark.createDataFrame([(1,'Joseph','English','2021'), (2,'Helen','English','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('snapshot_example', 'student', df1)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/snapshot_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# process data from stage1 into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_snapshot_data('snapshot_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/snapshot_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/snapshot_example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# land the second test data batch in stage1\r\n",
+							"df2 = spark.createDataFrame([(1,'Joseph','Spanish','2021'), (3,'Elisa','Spanish','2021')], ['id', 'name', 'language', 'school_year'])\r\n",
+							"oea.land('snapshot_example', 'student', df2)\r\n",
+							"\r\n",
+							"# show what's landed in stage1\r\n",
+							"df = oea.load_csv('stage1np/snapshot_example/student')\r\n",
+							"df.show()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# process data from stage1 into stage2\r\n",
+							"example_schema = [['id', 'string', 'hash'], ['name', 'string', 'mask'], ['language', 'string', 'no-op'], ['school_year', 'string', 'partition-by']]\r\n",
+							"oea.ingest_snapshot_data('snapshot_example', 'student', example_schema, 'school_year')\r\n",
+							"\r\n",
+							"# show what's in stage2\r\n",
+							"df = oea.load_delta('stage2np/snapshot_example/student_lookup')\r\n",
+							"df.show()\r\n",
+							"df = oea.load_delta('stage2p/snapshot_example/student_pseudo')\r\n",
+							"df.show()\r\n",
+							"df.printSchema()"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/spark3p1sm')]",
+			"type": "Microsoft.Synapse/workspaces/bigDataPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"autoPause": {
+					"enabled": true,
+					"delayInMinutes": 15
+				},
+				"autoScale": {
+					"enabled": true,
+					"maxNodeCount": 5,
+					"minNodeCount": 3
+				},
+				"nodeCount": 3,
+				"nodeSize": "Small",
+				"nodeSizeFamily": "MemoryOptimized",
+				"sparkVersion": "3.1",
+				"libraryRequirements": {
+					"content": "opencensus-ext-azure >= 1.0.8\r\nFaker >= 8.0",
+					"filename": "/usr/csuser/clouddrive/OpenEduAnalytics/framework/requirements.txt",
+					"time": "2022-03-16T23:42:14.6465197Z"
+				},
+				"isComputeIsolationEnabled": false,
+				"sessionLevelPackagesEnabled": false,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "westus"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/create_sql_db')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "set sqlDBName",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "sqlDBName",
+							"value": {
+								"value": "sqls@{pipeline().parameters.stage}_@{pipeline().parameters.sourceDirectory}",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "Stored procedure1",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "set sqlDBName",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[dbo].[sp_executesql]",
+							"storedProcedureParameters": {
+								"command": {
+									"value": {
+										"value": "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '@{variables('sqlDBName')}') \nBEGIN\n  CREATE DATABASE @{variables('sqlDBName')}; \nEND;",
+										"type": "Expression"
+									},
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "[parameters('LS_SQL_Serverless_OEA')]",
+							"type": "LinkedServiceReference",
+							"parameters": {
+								"dbName": "master"
+							}
+						}
+					},
+					{
+						"name": "get folders in stageXp",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "Stored procedure1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "stage@{pipeline().parameters.stage}p",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "BinaryReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "get folders in stageXp",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('get folders in stageXp').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "create or alter view for pseduonymized tables",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [
+										{
+											"name": "command",
+											"value": "CREATE OR ALTER VIEW @{item().name} AS SELECT * FROM OPENROWSET( BULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}p/@{pipeline().parameters.sourceDirectory}/@{item().name}', FORMAT='DELTA' ) AS [r]"
+										}
+									],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[sp_executesql]",
+										"storedProcedureParameters": {
+											"command": {
+												"value": {
+													"value": "CREATE OR ALTER VIEW @{item().name} AS\nSELECT * FROM OPENROWSET(\nBULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}p/@{pipeline().parameters.sourceDirectory}/@{item().name}',\nFORMAT='DELTA'\n) AS [r]",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Serverless_OEA')]",
+										"type": "LinkedServiceReference",
+										"parameters": {
+											"dbName": {
+												"value": "@variables('sqlDBName')",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "get folders in stageXnp",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "Stored procedure1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_binary_folder",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "stage@{pipeline().parameters.stage}np",
+										"type": "Expression"
+									},
+									"directory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "BinaryReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach2",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "get folders in stageXnp",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('get folders in stageXnp').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "create or alter view for lookup tables",
+									"type": "SqlServerStoredProcedure",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "7.00:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [
+										{
+											"name": "command",
+											"value": "CREATE OR ALTER VIEW @{item().name} AS SELECT * FROM OPENROWSET( BULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}p/@{pipeline().parameters.sourceDirectory}/@{item().name}', FORMAT='DELTA' ) AS [r]"
+										}
+									],
+									"typeProperties": {
+										"storedProcedureName": "[[dbo].[sp_executesql]",
+										"storedProcedureParameters": {
+											"command": {
+												"value": {
+													"value": "CREATE OR ALTER VIEW @{item().name} AS\nSELECT * FROM OPENROWSET(\nBULK 'https://@{pipeline().parameters.storageAccount}.dfs.core.windows.net/stage@{pipeline().parameters.stage}np/@{pipeline().parameters.sourceDirectory}/@{item().name}',\nFORMAT='DELTA'\n) AS [r]",
+													"type": "Expression"
+												},
+												"type": "String"
+											}
+										}
+									},
+									"linkedServiceName": {
+										"referenceName": "[parameters('LS_SQL_Serverless_OEA')]",
+										"type": "LinkedServiceReference",
+										"parameters": {
+											"dbName": {
+												"value": "@variables('sqlDBName')",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"parameters": {
+					"storageAccount": {
+						"type": "string",
+						"defaultValue": "stoeacisd3gg1"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					},
+					"stage": {
+						"type": "string",
+						"defaultValue": "2"
+					}
+				},
+				"variables": {
+					"sqlDBName": {
+						"type": "String",
+						"defaultValue": "sqls2_mydb"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Ingest"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:12Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_binary_folder')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/create_lake_db')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "create_lake_db",
+						"type": "SynapseNotebook",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [
+							{
+								"name": "kwargs",
+								"value": "{'stage_num':@{pipeline().parameters.stageNum},'source_dir':@{pipeline().parameters.sourceDirectory}"
+							}
+						],
+						"typeProperties": {
+							"notebook": {
+								"referenceName": "OEA_connector",
+								"type": "NotebookReference"
+							},
+							"parameters": {
+								"object_name": {
+									"value": "oea",
+									"type": "string"
+								},
+								"method_name": {
+									"value": "create_lake_db",
+									"type": "string"
+								},
+								"kwargs": {
+									"value": {
+										"value": "{'stage_num':@{pipeline().parameters.stageNum},'source_dir':'@{pipeline().parameters.sourceDirectory}'}",
+										"type": "Expression"
+									},
+									"type": "string"
+								}
+							},
+							"sparkPool": {
+								"referenceName": "spark3p1sm",
+								"type": "BigDataPoolReference"
+							}
+						}
+					}
+				],
+				"parameters": {
+					"stageNum": {
+						"type": "string",
+						"defaultValue": "2"
+					},
+					"sourceDirectory": {
+						"type": "string",
+						"defaultValue": "contoso_sis"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Ingest"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:58:00Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/notebooks/OEA_connector')]",
+				"[concat(variables('workspaceId'), '/bigDataPools/spark3p1sm')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Copy_from_URL')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Copies data from the specified URL and lands it in the specified location in the data lake.",
+				"activities": [
+					{
+						"name": "copy from URL",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "7.00:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [
+							{
+								"name": "URL",
+								"value": "@pipeline().parameters.URL"
+							},
+							{
+								"name": "sinkFilesystem",
+								"value": "@pipeline().parameters.sinkFilesystem"
+							},
+							{
+								"name": "sinkFilename",
+								"value": "@pipeline().parameters.sinkFilename"
+							}
+						],
+						"typeProperties": {
+							"source": {
+								"type": "BinarySource",
+								"storeSettings": {
+									"type": "HttpReadSettings",
+									"requestMethod": "GET"
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							},
+							"sink": {
+								"type": "BinarySink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_HTTP_binary",
+								"type": "DatasetReference",
+								"parameters": {
+									"URL": {
+										"value": "@pipeline().parameters.URL",
+										"type": "Expression"
+									}
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_binary_file",
+								"type": "DatasetReference",
+								"parameters": {
+									"filesystem": {
+										"value": "@pipeline().parameters.sinkFilesystem",
+										"type": "Expression"
+									},
+									"filename": {
+										"value": "@pipeline().parameters.sinkFilename",
+										"type": "Expression"
+									}
+								}
+							}
+						]
+					}
+				],
+				"parameters": {
+					"URL": {
+						"type": "string",
+						"defaultValue": "https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Contoso_SIS/test_data/studentattendance.csv"
+					},
+					"sinkFilesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"sinkFilename": {
+						"type": "string",
+						"defaultValue": "contoso_sis/example1/studentattendance.csv"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework/Extracts"
+				},
+				"annotations": [],
+				"lastPublishTime": "2022-03-16T23:57:14Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/DS_HTTP_binary')]",
+				"[concat(variables('workspaceId'), '/datasets/DS_ADLS_binary_file')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ADLS_binary_folder')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_ADLS_OEA')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filesystem": {
+						"type": "string"
+					},
+					"directory": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().directory",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().filesystem",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/OEA_connector')]",
+			"type": "Microsoft.Synapse/workspaces/notebooks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"nbformat": 4,
+				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
+				"sessionProperties": {
+					"driverMemory": "28g",
+					"driverCores": 4,
+					"executorMemory": "28g",
+					"executorCores": 4,
+					"numExecutors": 2
+				},
+				"metadata": {
+					"kernelspec": {
+						"name": "synapse_pyspark",
+						"display_name": "Synapse PySpark"
+					},
+					"language_info": {
+						"name": "python"
+					}
+				},
+				"cells": [
+					{
+						"cell_type": "markdown",
+						"metadata": {
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"# OEA connector\n",
+							"This notebook provides a way for invoking methods on the OEA framework or supporting modules from a pipeline.\n",
+							"\n",
+							"When setting up a new module, be sure to include a new cell below that imports that module, so that its methods can be invoked by pipelines."
+						],
+						"attachments": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"tags": [
+								"parameters"
+							]
+						},
+						"source": [
+							"# These values should be passed in from the pipeline that is using this notebook as an activity.\r\n",
+							"# Note that kwargs allows you to pass in a dict of params, but the dict has to specified as a string when invoked from a pipeline.\r\n",
+							"# Also note that you can refer to attributes of an object in the params, for example: {'path':oea.stage2np}\r\n",
+							"object_name = 'oea'\r\n",
+							"method_name = ''\r\n",
+							"kwargs = '{}'"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"outputs_hidden": false,
+								"source_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": true
+						},
+						"source": [
+							"%run /OEA_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"outputs_hidden": false,
+								"source_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							},
+							"collapsed": true
+						},
+						"source": [
+							"%run /ContosoSIS_py"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					},
+					{
+						"cell_type": "code",
+						"metadata": {
+							"jupyter": {
+								"source_hidden": false,
+								"outputs_hidden": false
+							},
+							"nteract": {
+								"transient": {
+									"deleting": false
+								}
+							}
+						},
+						"source": [
+							"obj = eval(object_name)\r\n",
+							"kwargs = eval(kwargs)\r\n",
+							"m = getattr(obj, method_name)\r\n",
+							"result = m(**kwargs)\r\n",
+							"mssparkutils.notebook.exit(result)"
+						],
+						"attachments": null,
+						"outputs": [],
+						"execution_count": null
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_HTTP_binary')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Retrieves data from an http endpoint.\nThe data can be in any format - the binary dataset allows us to pull any payload without affecting it.",
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_HTTP')]",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"baseURL": {
+							"value": "@dataset().URL",
+							"type": "Expression"
+						}
+					}
+				},
+				"parameters": {
+					"URL": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "HttpServerLocation"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DS_ADLS_binary_file')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Used for landing data in the data lake.\nDefaults to landing data in stage1np.\nNote that you can specify a full path in the filename param (eg, to land a file in a specific folder filename param can be 'contoso_sis/students/students.csv').\n",
+				"linkedServiceName": {
+					"referenceName": "[parameters('LS_ADLS_OEA')]",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filesystem": {
+						"type": "string",
+						"defaultValue": "stage1np"
+					},
+					"filename": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "OEA_Framework"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"fileSystem": {
+							"value": "@dataset().filesystem",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
