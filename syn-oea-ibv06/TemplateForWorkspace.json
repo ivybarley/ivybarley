@@ -3688,6 +3688,10 @@
 			"properties": {
 				"nbformat": 4,
 				"nbformat_minor": 2,
+				"bigDataPool": {
+					"referenceName": "spark3p1sm",
+					"type": "BigDataPoolReference"
+				},
 				"sessionProperties": {
 					"driverMemory": "28g",
 					"driverCores": 4,
@@ -3698,7 +3702,7 @@
 						"spark.dynamicAllocation.enabled": "false",
 						"spark.dynamicAllocation.minExecutors": "2",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "74f4d3b5-e8d4-4303-8b85-0e98dd06034c"
+						"spark.autotune.trackingId": "c7a49a53-606d-4367-8057-d8c39a07d209"
 					}
 				},
 				"metadata": {
@@ -3710,6 +3714,21 @@
 					},
 					"language_info": {
 						"name": "python"
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/7b9a4896-4541-483f-bdc7-d8f4ec6be3ee/resourceGroups/rg-oea-ibv06/providers/Microsoft.Synapse/workspaces/syn-oea-ibv06/bigDataPools/spark3p1sm",
+						"name": "spark3p1sm",
+						"type": "Spark",
+						"endpoint": "https://syn-oea-ibv06.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/spark3p1sm",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "3.1",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28,
+						"automaticScaleJobs": false
 					},
 					"sessionKeepAliveTimeout": 30
 				},
@@ -3855,7 +3874,7 @@
 						"spark.dynamicAllocation.enabled": "false",
 						"spark.dynamicAllocation.minExecutors": "2",
 						"spark.dynamicAllocation.maxExecutors": "2",
-						"spark.autotune.trackingId": "f0db0a04-ae9c-4858-bbcf-ea37c83efc30"
+						"spark.autotune.trackingId": "2fedc48e-383e-4610-b52c-92f0e2163688"
 					}
 				},
 				"metadata": {
@@ -3873,7 +3892,6 @@
 				"cells": [
 					{
 						"cell_type": "code",
-						"metadata": {},
 						"source": [
 							"from pyspark.sql.types import LongType\r\n",
 							"import datetime\r\n",
@@ -4208,16 +4226,39 @@
 					"executorMemory": "28g",
 					"executorCores": 4,
 					"numExecutors": 2,
-					"conf": {}
+					"conf": {
+						"spark.dynamicAllocation.enabled": "false",
+						"spark.dynamicAllocation.minExecutors": "2",
+						"spark.dynamicAllocation.maxExecutors": "2",
+						"spark.autotune.trackingId": "abd31f56-008e-4e46-b66b-f632976dcd44"
+					}
 				},
 				"metadata": {
+					"saveOutput": true,
+					"enableDebugMode": false,
 					"kernelspec": {
 						"name": "synapse_pyspark",
 						"display_name": "Synapse PySpark"
 					},
 					"language_info": {
 						"name": "python"
-					}
+					},
+					"a365ComputeOptions": {
+						"id": "/subscriptions/7b9a4896-4541-483f-bdc7-d8f4ec6be3ee/resourceGroups/rg-oea-ibv06/providers/Microsoft.Synapse/workspaces/syn-oea-ibv06/bigDataPools/spark3p1sm",
+						"name": "spark3p1sm",
+						"type": "Spark",
+						"endpoint": "https://syn-oea-ibv06.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/spark3p1sm",
+						"auth": {
+							"type": "AAD",
+							"authResource": "https://dev.azuresynapse.net"
+						},
+						"sparkVersion": "3.1",
+						"nodeCount": 3,
+						"cores": 4,
+						"memory": 28,
+						"automaticScaleJobs": false
+					},
+					"sessionKeepAliveTimeout": 30
 				},
 				"cells": [
 					{
@@ -4234,8 +4275,7 @@
 							"This notebook provides a way for invoking methods on the OEA framework or supporting modules from a pipeline.\n",
 							"\n",
 							"When setting up a new module, be sure to include a new cell below that imports that module, so that its methods can be invoked by pipelines."
-						],
-						"attachments": null
+						]
 					},
 					{
 						"cell_type": "code",
@@ -4261,7 +4301,6 @@
 							"method_name = ''\r\n",
 							"kwargs = '{}'"
 						],
-						"attachments": null,
 						"outputs": [],
 						"execution_count": null
 					},
@@ -4282,7 +4321,6 @@
 						"source": [
 							"%run /OEA_py"
 						],
-						"attachments": null,
 						"outputs": [],
 						"execution_count": null
 					},
@@ -4303,7 +4341,6 @@
 						"source": [
 							"%run /ContosoSIS_py"
 						],
-						"attachments": null,
 						"outputs": [],
 						"execution_count": null
 					},
@@ -4327,7 +4364,6 @@
 							"result = m(**kwargs)\r\n",
 							"mssparkutils.notebook.exit(result)"
 						],
-						"attachments": null,
 						"outputs": [],
 						"execution_count": null
 					}
