@@ -1,0 +1,172 @@
+{
+	"name": "GraphAPI_main_pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "Extract from source - land in stage1np",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "GraphAPI_copy_test_data",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"endpointsSet1": {
+							"value": "@json('[{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Users/part-00000-cae42818-3572-4824-b396-58587ad01616-c000.json\",\"sinkDirectory\":\"graph_api/users\",\"sinkFilename\":\"part-00000-cae42818-3572-4824-b396-58587ad01616-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00000-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00000-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00001-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00001-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00002-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00002-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00003-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00003-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00004-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00004-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00005-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00005-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00006-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00006-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00007-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00007-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00008-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00008-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00009-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00009-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00010-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00010-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00011-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00011-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00012-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00012-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00013-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00013-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00014-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00014-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00015-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00015-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00016-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00016-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00017-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00017-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00018-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00018-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00019-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00019-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00020-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00020-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"}]')",
+							"type": "Expression"
+						},
+						"endpointsSet2": {
+							"value": "@json('[{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00021-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00021-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00022-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00022-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00023-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00023-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00024-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00024-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00025-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00025-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00026-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00026-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00027-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00027-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00028-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00028-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00029-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00029-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00030-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00030-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/M365_App_User_Detail/part-00031-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\",\"sinkDirectory\":\"graph_api/m365_app_user_detail\",\"sinkFilename\":\"part-00031-b6c697c6-1520-4aae-9f5c-6213dff6ab0a-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00000-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00000-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00001-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00001-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00002-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00002-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00003-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00003-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00004-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00004-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00005-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00005-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00006-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00006-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00007-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00007-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00008-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00008-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00009-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00009-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"}]')",
+							"type": "Expression"
+						},
+						"endpointsSet3": {
+							"value": "@json('[{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00010-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00010-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00011-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00011-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00012-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00012-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00013-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00013-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00014-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00014-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00015-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00015-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00016-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00016-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00017-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00017-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00018-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00018-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00019-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00019-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00020-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00020-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00021-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00021-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00022-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00022-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00023-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00023-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00024-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00024-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00025-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00025-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00026-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00026-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00027-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00027-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00028-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00028-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00029-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00029-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00030-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00030-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"},{\"URL\":\"https://raw.githubusercontent.com/microsoft/OpenEduAnalytics/main/modules/Microsoft_Data/Microsoft_Graph/test_data/GraphAPI/Teams_Activity_User_Detail/part-00031-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\",\"sinkDirectory\":\"graph_api/teams_activity_user_detail\",\"sinkFilename\":\"part-00031-bd366e94-d20e-4e81-b4ba-47b15889b4a9-c000.json\"}]')",
+							"type": "Expression"
+						},
+						"sinkFilesystem": "stage1np",
+						"timezone": "Central Standard Time"
+					}
+				}
+			},
+			{
+				"name": "ingest into stage2p and stage2np",
+				"type": "SynapseNotebook",
+				"dependsOn": [
+					{
+						"activity": "Extract from source - land in stage1np",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "GraphAPI_module_ingestion1",
+						"type": "NotebookReference"
+					},
+					"snapshot": true
+				}
+			},
+			{
+				"name": "If create_sql_db",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "ingest into stage2p and stage2np",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.create_sql_db",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "create_sql_db",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "create_sql_db1",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"storageAccount": {
+										"value": "@pipeline().parameters.storageAccount",
+										"type": "Expression"
+									},
+									"sourceDirectory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									},
+									"stage": "2"
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "If create_lake_db",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "ingest into stage2p and stage2np",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.create_lake_db",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "create_lake_db",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "create_lake_db1",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"stageNum": "2",
+									"sourceDirectory": {
+										"value": "@pipeline().parameters.sourceDirectory",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"storageAccount": {
+				"type": "string",
+				"defaultValue": "stoeahybriddev2"
+			},
+			"sourceDirectory": {
+				"type": "string",
+				"defaultValue": "graph_api"
+			},
+			"create_sql_db": {
+				"type": "bool",
+				"defaultValue": true
+			},
+			"create_lake_db": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"folder": {
+			"name": "Graph API Module"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-11-20T00:26:48Z"
+	}
+}
